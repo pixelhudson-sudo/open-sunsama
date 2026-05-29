@@ -9,7 +9,7 @@ import { getDb, eq, users } from '@open-sunsama/database';
 import { AuthenticationError, ConflictError, ValidationError } from '@open-sunsama/utils';
 import type { User, AuthResponse } from '@open-sunsama/types';
 import { hashPassword, comparePassword } from '../lib/password.js';
-import { signToken } from '../lib/jwt.js';
+import { signToken, verifyTokenForRefresh } from '../lib/jwt.js';
 import { auth, type AuthVariables } from '../middleware/auth.js';
 import {
   registerSchema, loginSchema, updateProfileSchema, changePasswordSchema,
@@ -59,6 +59,34 @@ authRouter.post('/login', zValidator('json', loginSchema), async (c) => {
 
   const token = signToken(user.id);
   return c.json({ success: true, data: { user: formatUser(user) as User, token } as AuthResponse });
+});
+
+/**
+ * POST /auth/refresh - Exchange an existing token for a fresh one.
+ *
+ * Deliberately does NOT use the `auth` middleware: that middleware rejects
+ * expired tokens, but refresh must also accept tokens that lapsed within the
+ * grace window so a returning user is renewed rather than logged out. Only
+ * JWTs are refreshable here (API keys don't expire and aren't accepted).
+ */
+authRouter.post('/refresh', async (c) => {
+  const authHeader = c.req.header('Authorization');
+  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token) throw new AuthenticationError('Authorization header required');
+
+  let userId: string;
+  try {
+    ({ userId } = verifyTokenForRefresh(token));
+  } catch {
+    throw new AuthenticationError('Invalid or expired token');
+  }
+
+  const db = getDb();
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  if (!user) throw new AuthenticationError('User not found');
+
+  const newToken = signToken(user.id);
+  return c.json({ success: true, data: { user: formatUser(user) as User, token: newToken } as AuthResponse });
 });
 
 /** POST /auth/logout - Logout (stateless - just returns success) */

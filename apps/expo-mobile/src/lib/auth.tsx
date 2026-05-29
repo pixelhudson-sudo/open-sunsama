@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { User, LoginInput, CreateUserInput, AuthResponse, UpdateUserInput } from '@open-sunsama/types';
-import { getApi, setAuthToken, clearAuthToken, getToken, setToken, removeToken, initializeApi } from './api';
+import { getApi, setAuthToken, clearAuthToken, getToken, setToken, removeToken, initializeApi, onTokenRefreshed } from './api';
 import { getDeviceTimezone } from './timezone';
 
 interface AuthState {
@@ -36,6 +36,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setInitialized(true);
     })();
+  }, []);
+
+  // Mirror background token refreshes (the 401 auto-retry) into React state so
+  // the session stays authenticated instead of being dropped on token expiry.
+  React.useEffect(() => {
+    return onTokenRefreshed((newToken) => {
+      setTokenState(newToken);
+    });
   }, []);
 
   // Track if timezone sync has been attempted for this session

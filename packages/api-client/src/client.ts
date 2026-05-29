@@ -46,6 +46,23 @@ export interface ApiClientConfig {
 
   /** Custom fetch function (e.g., Tauri HTTP plugin fetch for desktop) */
   customFetch?: typeof globalThis.fetch;
+
+  /**
+   * Dynamic token getter. When provided, it is consulted on every request and
+   * takes precedence over the static `token`. This lets a refreshed token be
+   * picked up without recreating the client — important so in-flight callers
+   * and the 401 auto-retry below use the latest token.
+   */
+  getToken?: () => string | undefined;
+
+  /**
+   * Called when a request comes back 401 Unauthorized. Should attempt to
+   * obtain a fresh token and resolve with it (or null if refresh failed).
+   * When a new token is returned, the original request is retried exactly
+   * once with that token. Implementations are expected to de-duplicate
+   * concurrent calls (single-flight).
+   */
+  onUnauthorized?: () => Promise<string | null>;
 }
 
 /**
@@ -80,12 +97,16 @@ export function createApiClient(config: ApiClientConfig): KyInstance {
     onError,
     retry = {},
     customFetch,
+    getToken,
+    onUnauthorized,
   } = config;
 
-  // Build authorization header
+  // Build authorization header. A dynamic `getToken` (when provided) wins over
+  // the static `token` so refreshed tokens are used without rebuilding.
   const getAuthHeader = (): Record<string, string> => {
-    if (token) {
-      return { Authorization: `Bearer ${token}` };
+    const activeToken = getToken ? getToken() : token;
+    if (activeToken) {
+      return { Authorization: `Bearer ${activeToken}` };
     }
     if (apiKey) {
       return { "X-API-Key": apiKey };
@@ -105,15 +126,20 @@ export function createApiClient(config: ApiClientConfig): KyInstance {
     hooks: {
       beforeRequest: [
         async (request) => {
-          // Add default headers
-          const authHeaders = getAuthHeader();
-          Object.entries({ ...defaultHeaders, ...authHeaders }).forEach(
-            ([key, value]) => {
-              if (!request.headers.has(key)) {
-                request.headers.set(key, value);
-              }
+          // Default headers — don't clobber an explicit per-request value.
+          for (const [key, value] of Object.entries(defaultHeaders)) {
+            if (!request.headers.has(key)) {
+              request.headers.set(key, value);
             }
-          );
+          }
+
+          // Auth header — set authoritatively. ky re-runs beforeRequest on each
+          // (re)try, so when a 401 triggers a refresh + forced retry below, this
+          // overwrites the now-stale Authorization with the freshly refreshed
+          // token instead of leaving the old one in place.
+          for (const [key, value] of Object.entries(getAuthHeader())) {
+            request.headers.set(key, value);
+          }
 
           // Call custom hook
           if (onRequest) {
@@ -122,10 +148,27 @@ export function createApiClient(config: ApiClientConfig): KyInstance {
         },
       ],
       afterResponse: [
-        async (_request, _options, response) => {
+        async (_request, _options, response, state) => {
+          // Transparently refresh on 401: ask the caller for a fresh token and,
+          // if we get one, force ky to replay the original request (body and
+          // all) with the new token applied by beforeRequest. The retryCount
+          // guard limits this to a single refresh attempt so a token that is
+          // still rejected can't spin in a loop.
+          if (
+            response.status === 401 &&
+            onUnauthorized &&
+            state.retryCount === 0
+          ) {
+            const newToken = await onUnauthorized();
+            if (newToken) {
+              return ky.retry();
+            }
+          }
+
           if (onResponse) {
             await onResponse(response);
           }
+          return response;
         },
       ],
       beforeError: [
