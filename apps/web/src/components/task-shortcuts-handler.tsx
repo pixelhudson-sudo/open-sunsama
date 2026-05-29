@@ -150,9 +150,7 @@ export function TaskShortcutsHandler({
       ) {
         if (hoveredTask) {
           event.preventDefault();
-          if (confirm(`Delete "${hoveredTask.title}"?`)) {
-            deleteTask.mutate(hoveredTask.id);
-          }
+          deleteTask.mutate(hoveredTask.id);
         }
         return;
       }
