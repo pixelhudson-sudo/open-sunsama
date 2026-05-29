@@ -4,6 +4,7 @@ import type { TaskPriority } from "@open-sunsama/types";
 import { cn, TIME_PRESETS, formatTimeDisplayCompact } from "@/lib/utils";
 import { useCreateTask, useTasks, useReorderTasks } from "@/hooks/useTasks";
 import { useCreateSubtask } from "@/hooks/useSubtaskMutations";
+import { useAddTaskPosition } from "@/hooks/useAddTaskPosition";
 import {
   Dialog,
   DialogContent,
@@ -46,10 +47,17 @@ export function AddTaskModal({
   open,
   onOpenChange,
   scheduledDate,
-  addPosition = "bottom",
-  onAddPositionChange,
+  addPosition: addPositionProp,
+  onAddPositionChange: onAddPositionChangeProp,
   initialTitle,
 }: AddTaskModalProps) {
+  // The insert-position choice is a global, DB-backed preference. Callers may
+  // pass controlled state, but by default we fall back to the shared
+  // preference so the toggle works universally wherever the modal is opened.
+  const { addPosition: storedPosition, setAddPosition } = useAddTaskPosition();
+  const addPosition = addPositionProp ?? storedPosition;
+  const onAddPositionChange = onAddPositionChangeProp ?? setAddPosition;
+
   const [title, setTitle] = React.useState(initialTitle ?? "");
   const [description, setDescription] = React.useState("");
   const [estimatedMins, setEstimatedMins] = React.useState<string>("");
@@ -289,52 +297,49 @@ export function AddTaskModal({
                 <kbd className="inline-flex h-5 select-none items-center rounded border bg-muted px-1 font-mono text-[10px] font-medium">↵</kbd>
                 <span className="ml-0.5">create</span>
               </span>
-              {onAddPositionChange && (
-                <span className="text-xs text-muted-foreground/40 inline-flex items-center gap-1">
-                  <kbd className="inline-flex h-5 select-none items-center rounded border bg-muted px-1 font-mono text-[10px] font-medium">⌥</kbd>
-                  <kbd className="inline-flex h-5 select-none items-center rounded border bg-muted px-1 font-mono text-[10px] font-medium">↑↓</kbd>
-                  <span className="ml-0.5">position</span>
-                </span>
-              )}
+              <span className="text-xs text-muted-foreground/40 inline-flex items-center gap-1">
+                <kbd className="inline-flex h-5 select-none items-center rounded border bg-muted px-1 font-mono text-[10px] font-medium">⌥</kbd>
+                <kbd className="inline-flex h-5 select-none items-center rounded border bg-muted px-1 font-mono text-[10px] font-medium">↑↓</kbd>
+                <span className="ml-0.5">position</span>
+              </span>
             </div>
 
             {/* Right: position toggle + actions */}
             <div className="flex items-center gap-2">
               {/* Position toggle button */}
-              {onAddPositionChange && (
-                <TooltipProvider delayDuration={0}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className={cn(
-                          "h-8 w-8 p-0",
-                          isAddingToTop && "border-primary/60 bg-primary/5 text-primary"
-                        )}
-                        onClick={() =>
-                          onAddPositionChange(isAddingToTop ? "bottom" : "top")
-                        }
-                      >
-                        {isAddingToTop ? (
-                          <ArrowUp className="h-3.5 w-3.5" />
-                        ) : (
-                          <ArrowDown className="h-3.5 w-3.5" />
-                        )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="flex flex-col items-start gap-0.5 text-xs">
-                      <span className="font-medium">
-                        {isAddingToTop ? "Adding to top" : "Adding to bottom"}
-                      </span>
-                      <span className="text-muted-foreground">
-                        Click or <kbd className="font-mono">⌥↑</kbd>/<kbd className="font-mono">⌥↓</kbd> to toggle
-                      </span>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      aria-label={isAddingToTop ? "Adding to top" : "Adding to bottom"}
+                      className={cn(
+                        "h-8 w-8 p-0",
+                        isAddingToTop && "border-primary/60 bg-primary/5 text-primary"
+                      )}
+                      onClick={() =>
+                        onAddPositionChange(isAddingToTop ? "bottom" : "top")
+                      }
+                    >
+                      {isAddingToTop ? (
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      ) : (
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="flex flex-col items-start gap-0.5 text-xs">
+                    <span className="font-medium">
+                      {isAddingToTop ? "Adding to top" : "Adding to bottom"}
+                    </span>
+                    <span className="text-muted-foreground">
+                      Click or <kbd className="font-mono">⌥↑</kbd>/<kbd className="font-mono">⌥↓</kbd> to toggle
+                    </span>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
 
               <Button
                 type="button"

@@ -117,6 +117,7 @@ export interface UserPreferences {
   workStartHour?: number;
   workEndHour?: number;
   homeTab?: "board" | "tasks" | "calendar";
+  addTaskPosition?: "top" | "bottom";
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
@@ -126,6 +127,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   workStartHour: 9,
   workEndHour: 18,
   homeTab: "board",
+  addTaskPosition: "top",
 };
 
 // CSS variable generation for a theme

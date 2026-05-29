@@ -8,13 +8,7 @@ import {
   type AddPosition,
 } from "./add-task-modal.lazy";
 import { prefetchRichTextEditor } from "@/components/ui/rich-text-editor.lazy";
-
-const POSITION_STORAGE_KEY = "open-sunsama:add-task-position";
-
-function getStoredPosition(): AddPosition {
-  if (typeof window === "undefined") return "bottom";
-  return (localStorage.getItem(POSITION_STORAGE_KEY) as AddPosition) ?? "bottom";
-}
+import { useAddTaskPosition } from "@/hooks/useAddTaskPosition";
 
 interface AddTaskInlineProps {
   scheduledDate: string;
@@ -26,15 +20,15 @@ interface AddTaskInlineProps {
 /**
  * Add task button that opens a modal.
  * Supports compact mode for Sunsama-style column headers.
- * Includes a position toggle (top/bottom) that persists across sessions.
+ * Includes a position toggle (top/bottom) backed by a global, DB-persisted
+ * user preference, so the choice is remembered across accounts and logins.
  */
 export function AddTaskInline({ scheduledDate, className, compact }: AddTaskInlineProps) {
   const [isModalOpen, setIsModalOpen] = React.useState(false);
-  const [addPosition, setAddPosition] = React.useState<AddPosition>(getStoredPosition);
+  const { addPosition, setAddPosition } = useAddTaskPosition();
 
   const handlePositionChange = (position: AddPosition) => {
     setAddPosition(position);
-    localStorage.setItem(POSITION_STORAGE_KEY, position);
   };
 
   const togglePosition = (e: React.MouseEvent) => {

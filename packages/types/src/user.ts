@@ -50,6 +50,16 @@ export interface UserPreferences {
    * and month calendar views to know where to start the row.
    */
   weekStartsOn?: 0 | 1;
+
+  /**
+   * Where newly created tasks are inserted in a day's to-do list.
+   * - "top": insert at the top of the list (default)
+   * - "bottom": append to the bottom of the list
+   *
+   * Persisted in the database so the choice is remembered globally
+   * across accounts, devices, and logins.
+   */
+  addTaskPosition?: "top" | "bottom";
 }
 
 /**

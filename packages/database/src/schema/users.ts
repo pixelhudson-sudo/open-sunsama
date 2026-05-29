@@ -11,6 +11,7 @@ export interface UserPreferences {
   workStartHour?: number;
   workEndHour?: number;
   homeTab?: "board" | "tasks" | "calendar";
+  addTaskPosition?: "top" | "bottom";
 }
 
 export const users = pgTable('users', {
