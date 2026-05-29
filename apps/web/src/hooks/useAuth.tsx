@@ -7,8 +7,25 @@ import type {
   AuthResponse,
   UpdateUserInput,
 } from "@open-sunsama/types";
-import { getApi, setAuthToken, clearApiClient } from "@/lib/api";
+import {
+  getApi,
+  setAuthToken,
+  clearApiClient,
+  refreshAuthToken,
+  onTokenRefreshed,
+  getTokenExpiryMs,
+} from "@/lib/api";
 import { clearPersistedCache } from "@/lib/query-persister";
+
+// Refresh the access token this long before it expires. With the default 7d
+// token lifetime, an active user is renewed roughly a day before expiry, so
+// the token never actually lapses while the app is in use.
+const REFRESH_BEFORE_EXPIRY_MS = 24 * 60 * 60 * 1000;
+// setTimeout clamps delays larger than ~24.8 days; cap to stay well under it.
+const MAX_TIMEOUT_MS = 2 ** 31 - 1;
+// If a proactive refresh fails (transient network/server blip), retry on this
+// fixed interval rather than recomputing a now-zero delay, which would spin.
+const REFRESH_RETRY_MS = 5 * 60 * 1000;
 
 const AUTH_TOKEN_KEY = "open_sunsama_token";
 const AUTH_USER_KEY = "open_sunsama_user";
@@ -72,6 +89,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAuthToken(storedToken);
     }
   }, []);
+
+  // Mirror background token refreshes (proactive timer or 401 auto-retry) into
+  // React state so isAuthenticated stays true and the WebSocket reconnects
+  // with the new token instead of being dropped when the old one expires.
+  React.useEffect(() => {
+    return onTokenRefreshed((newToken) => {
+      setToken(newToken);
+    });
+  }, []);
+
+  // Proactively refresh the token before it expires so an active session is
+  // never logged out. We schedule a timer for ~1 day before expiry and also
+  // re-check whenever the tab becomes visible — background timers get throttled
+  // by the browser, so a long-open-but-hidden tab can't be relied on alone.
+  React.useEffect(() => {
+    if (!token) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const tick = () => {
+      void refreshAuthToken().then((newToken) => {
+        // On success the token state changes and this effect re-runs, which
+        // reschedules cleanly. On failure nothing changes, so re-arm here on a
+        // fixed backoff — otherwise one transient failure would permanently
+        // disable proactive refresh for the session.
+        if (!newToken) {
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(tick, REFRESH_RETRY_MS);
+        }
+      });
+    };
+
+    const schedule = () => {
+      if (timer) clearTimeout(timer);
+      const exp = getTokenExpiryMs(token);
+      if (exp == null) return;
+      const delay = Math.max(0, exp - Date.now() - REFRESH_BEFORE_EXPIRY_MS);
+      timer = setTimeout(tick, Math.min(delay, MAX_TIMEOUT_MS));
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") return;
+      const exp = getTokenExpiryMs(token);
+      if (exp != null && exp - Date.now() <= REFRESH_BEFORE_EXPIRY_MS) {
+        void refreshAuthToken();
+      } else {
+        schedule();
+      }
+    };
+
+    schedule();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [token]);
 
   // Keep the cached user query primed so consumers reading from
   // ["auth", "me"] never see undefined when we already have a value on disk.
