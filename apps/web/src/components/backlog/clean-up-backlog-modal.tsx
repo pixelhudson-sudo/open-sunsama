@@ -73,17 +73,32 @@ interface CleanUpBacklogModalProps {
  * Clean up Backlog — groups the undated, pending backlog by age since created
  * and lets the user bulk hard-delete whole strata or hand-picked tasks.
  * Opened from the Backlog rail (desktop) and Backlog sheet (mobile).
+ *
+ * The body lives in a child component that Radix only mounts while the dialog
+ * is open, so the backlog query and all selection state are created fresh on
+ * each open and torn down on close (no fetching while closed).
  */
 export function CleanUpBacklogModal({
   open,
   onOpenChange,
 }: CleanUpBacklogModalProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-2xl flex-col gap-0 overflow-hidden p-0">
+        <CleanUpBacklogBody onClose={() => onOpenChange(false)} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CleanUpBacklogBody({ onClose }: { onClose: () => void }) {
   const { data: tasks, isLoading } = useTasks({ backlog: true, limit: 500 });
   const batchDelete = useBatchDeleteTasks();
 
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [collapsed, setCollapsed] = React.useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = React.useState(false);
+  const collapseInitialized = React.useRef(false);
 
   // Pending (not completed) backlog tasks grouped into age buckets.
   const groups = React.useMemo(() => {
@@ -92,7 +107,8 @@ export function CleanUpBacklogModal({
     for (const task of pending) {
       const days = ageDays(task);
       // The last bucket has minDays 0, so a match is always found.
-      const bucketKey = (BUCKETS.find((b) => days >= b.minDays) ?? BUCKETS[4]!).key;
+      const bucketKey = (BUCKETS.find((b) => days >= b.minDays) ?? BUCKETS[4]!)
+        .key;
       const list = byBucket.get(bucketKey) ?? [];
       list.push(task);
       byBucket.set(bucketKey, list);
@@ -103,25 +119,26 @@ export function CleanUpBacklogModal({
     })).filter((g) => g.tasks.length > 0);
   }, [tasks]);
 
-  const total = React.useMemo(
-    () => groups.reduce((n, g) => n + g.tasks.length, 0),
+  const allTasks = React.useMemo(
+    () => groups.flatMap((g) => g.tasks),
     [groups]
   );
+  const total = allTasks.length;
 
-  // Collapse every bucket except the first (oldest) non-empty one on open.
+  // Collapse every bucket except the first (oldest) non-empty one — once, as
+  // soon as data has loaded. Guarded by a ref so user-toggled collapse state
+  // is never clobbered when the list later changes (e.g. after a delete).
   React.useEffect(() => {
-    if (!open) return;
-    setSelected(new Set());
-    setConfirmOpen(false);
+    if (collapseInitialized.current || groups.length === 0) return;
+    collapseInitialized.current = true;
     setCollapsed(new Set(groups.slice(1).map((g) => g.key)));
-    // Run only when the dialog opens — group identity is stable per open.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [groups]);
 
   const selecting = selected.size > 0;
-  const allIds = React.useMemo(
-    () => groups.flatMap((g) => g.tasks.map((t) => t.id)),
-    [groups]
+
+  const selectedTasks = React.useMemo(
+    () => allTasks.filter((t) => selected.has(t.id)),
+    [allTasks, selected]
   );
 
   const toggleTask = (id: string) => {
@@ -145,7 +162,9 @@ export function CleanUpBacklogModal({
   };
 
   const toggleMaster = () => {
-    setSelected((prev) => (prev.size > 0 ? new Set() : new Set(allIds)));
+    setSelected((prev) =>
+      prev.size > 0 ? new Set() : new Set(allTasks.map((t) => t.id))
+    );
   };
 
   const clearAll = () => setSelected(new Set());
@@ -167,208 +186,201 @@ export function CleanUpBacklogModal({
   };
 
   const masterState: CheckState =
-    selected.size === 0 ? "off" : selected.size === total ? "on" : "mixed";
+    selected.size === 0 ? "off" : selected.size >= total ? "on" : "mixed";
 
   const handleConfirmDelete = () => {
-    const ids = [...selected];
+    const ids = selectedTasks.map((t) => t.id);
     if (ids.length === 0) return;
     batchDelete.mutate(ids);
     setSelected(new Set());
     setConfirmOpen(false);
   };
 
-  const previewTasks = React.useMemo(() => {
-    const set = selected;
-    return allIds
-      .map((id) => groups.flatMap((g) => g.tasks).find((t) => t.id === id))
-      .filter((t): t is Task => !!t && set.has(t.id));
-  }, [selected, allIds, groups]);
-
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-2xl flex-col gap-0 overflow-hidden p-0">
-          <DialogHeader className="space-y-0.5 px-5 py-4 text-left">
-            <DialogTitle className="text-base">Clean up Backlog</DialogTitle>
-            <DialogDescription className="text-xs">
-              {total} undated task{total === 1 ? "" : "s"} · oldest first
-            </DialogDescription>
-          </DialogHeader>
+      <DialogHeader className="space-y-0.5 px-5 py-4 text-left">
+        <DialogTitle className="text-base">Clean up Backlog</DialogTitle>
+        <DialogDescription className="text-xs">
+          {total} undated task{total === 1 ? "" : "s"} · oldest first
+        </DialogDescription>
+      </DialogHeader>
 
-          {/* Control bar */}
-          <div className="flex items-center gap-2.5 border-y px-5 py-2.5">
-            <button
-              type="button"
-              onClick={toggleMaster}
-              disabled={total === 0}
-              className="flex items-center gap-2.5 text-sm font-medium disabled:opacity-40"
-            >
-              <CheckBox state={masterState} />
-              <span>
-                {selected.size === 0 ? "Select all" : `${selected.size} selected`}
-              </span>
-            </button>
-            <div className="flex-1" />
-            {selecting && (
-              <button
-                type="button"
-                onClick={clearAll}
-                className="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-              >
-                Deselect all
-              </button>
-            )}
-          </div>
+      {/* Control bar */}
+      <div className="flex items-center gap-2.5 border-y px-5 py-2.5">
+        <button
+          type="button"
+          onClick={toggleMaster}
+          disabled={total === 0}
+          className="flex items-center gap-2.5 text-sm font-medium disabled:opacity-40"
+        >
+          <CheckBox state={masterState} />
+          <span>
+            {selected.size === 0 ? "Select all" : `${selected.size} selected`}
+          </span>
+        </button>
+        <div className="flex-1" />
+        {selecting && (
+          <button
+            type="button"
+            onClick={clearAll}
+            className="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            Deselect all
+          </button>
+        )}
+      </div>
 
-          {/* Body */}
-          <ScrollArea className="flex-1">
-            <div className="px-3 py-1">
-              {isLoading ? (
-                <div className="space-y-2 p-2">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <Skeleton key={i} className="h-8 w-full rounded-md" />
-                  ))}
-                </div>
-              ) : total === 0 ? (
-                <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
-                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
-                    <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <p className="text-sm font-medium">Backlog's clean</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    No unscheduled tasks to review.
-                  </p>
-                </div>
-              ) : (
-                groups.map((group, gi) => {
-                  const isCollapsed = collapsed.has(group.key);
-                  return (
-                    <div
-                      key={group.key}
-                      className={cn("group/sec", gi > 0 && "border-t border-border/60")}
+      {/* Body */}
+      <ScrollArea className="flex-1">
+        <div className="px-3 py-1">
+          {isLoading ? (
+            <div className="space-y-2 p-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-8 w-full rounded-md" />
+              ))}
+            </div>
+          ) : total === 0 ? (
+            <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
+                <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium">Backlog's clean</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                No unscheduled tasks to review.
+              </p>
+            </div>
+          ) : (
+            groups.map((group, gi) => {
+              const isCollapsed = collapsed.has(group.key);
+              return (
+                <div
+                  key={group.key}
+                  className={cn(
+                    "group/sec",
+                    gi > 0 && "border-t border-border/60"
+                  )}
+                >
+                  <div className="flex items-center gap-2.5 px-2 py-2.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleCollapse(group.key)}
+                      className="shrink-0 text-muted-foreground"
+                      aria-label={isCollapsed ? "Expand" : "Collapse"}
                     >
-                      <div className="flex items-center gap-2.5 px-2 py-2.5">
-                        <button
-                          type="button"
-                          onClick={() => toggleCollapse(group.key)}
-                          className="shrink-0 text-muted-foreground"
-                          aria-label={isCollapsed ? "Expand" : "Collapse"}
-                        >
-                          <ChevronRight
-                            className={cn(
-                              "h-4 w-4 transition-transform",
-                              !isCollapsed && "rotate-90"
-                            )}
-                          />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => toggleBucket(group.key)}
-                          className={cn(
-                            "shrink-0 transition-opacity",
-                            selecting
-                              ? "opacity-100"
-                              : "opacity-0 group-hover/sec:opacity-100"
-                          )}
-                          aria-label={`Select ${group.label}`}
-                        >
-                          <CheckBox state={bucketState(group)} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => toggleCollapse(group.key)}
-                          className="text-sm font-semibold"
-                        >
-                          {group.label}
-                        </button>
-                        <span className="text-xs text-muted-foreground">
-                          {group.tasks.length}
-                        </span>
-                      </div>
+                      <ChevronRight
+                        className={cn(
+                          "h-4 w-4 transition-transform",
+                          !isCollapsed && "rotate-90"
+                        )}
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleBucket(group.key)}
+                      className={cn(
+                        "shrink-0 transition-opacity",
+                        selecting
+                          ? "opacity-100"
+                          : "opacity-0 group-hover/sec:opacity-100"
+                      )}
+                      aria-label={`Select ${group.label}`}
+                    >
+                      <CheckBox state={bucketState(group)} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleCollapse(group.key)}
+                      className="text-sm font-semibold"
+                    >
+                      {group.label}
+                    </button>
+                    <span className="text-xs text-muted-foreground">
+                      {group.tasks.length}
+                    </span>
+                  </div>
 
-                      {!isCollapsed && (
-                        <div className="pb-2">
-                          {group.tasks.map((task) => {
-                            const isSel = selected.has(task.id);
-                            const days = ageDays(task);
-                            return (
-                              <button
-                                key={task.id}
-                                type="button"
-                                onClick={() => toggleTask(task.id)}
+                  {!isCollapsed && (
+                    <div className="pb-2">
+                      {group.tasks.map((task) => {
+                        const isSel = selected.has(task.id);
+                        const days = ageDays(task);
+                        return (
+                          <button
+                            key={task.id}
+                            type="button"
+                            onClick={() => toggleTask(task.id)}
+                            className={cn(
+                              "group/row flex w-full items-center gap-3 rounded-md py-1.5 pl-9 pr-2 text-left transition-colors",
+                              isSel ? "bg-primary/[0.07]" : "hover:bg-accent/60"
+                            )}
+                          >
+                            <span className="relative flex h-4 w-4 shrink-0 items-center justify-center">
+                              <span
                                 className={cn(
-                                  "group/row flex w-full items-center gap-3 rounded-md py-1.5 pl-9 pr-2 text-left transition-colors",
-                                  isSel ? "bg-primary/[0.07]" : "hover:bg-accent/60"
+                                  "absolute h-1.5 w-1.5 rounded-full",
+                                  PRIORITY_DOT[task.priority],
+                                  isSel || selecting
+                                    ? "opacity-0"
+                                    : "opacity-100 group-hover/row:opacity-0"
+                                )}
+                              />
+                              <span
+                                className={cn(
+                                  "absolute transition-opacity",
+                                  isSel || selecting
+                                    ? "opacity-100"
+                                    : "opacity-0 group-hover/row:opacity-100"
                                 )}
                               >
-                                <span className="relative flex h-4 w-4 shrink-0 items-center justify-center">
-                                  <span
-                                    className={cn(
-                                      "absolute h-1.5 w-1.5 rounded-full",
-                                      PRIORITY_DOT[task.priority],
-                                      isSel || selecting
-                                        ? "opacity-0"
-                                        : "opacity-100 group-hover/row:opacity-0"
-                                    )}
-                                  />
-                                  <span
-                                    className={cn(
-                                      "absolute transition-opacity",
-                                      isSel || selecting
-                                        ? "opacity-100"
-                                        : "opacity-0 group-hover/row:opacity-100"
-                                    )}
-                                  >
-                                    <CheckBox state={isSel ? "on" : "off"} />
-                                  </span>
-                                </span>
-                                <span className="flex-1 truncate text-sm">
-                                  {task.title}
-                                </span>
-                                <span className="shrink-0 text-xs text-muted-foreground">
-                                  {ageLabel(days)}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
+                                <CheckBox state={isSel ? "on" : "off"} />
+                              </span>
+                            </span>
+                            <span className="flex-1 truncate text-sm">
+                              {task.title}
+                            </span>
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                              {ageLabel(days)}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
-                  );
-                })
-              )}
-            </div>
-          </ScrollArea>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </ScrollArea>
 
-          {/* Footer */}
-          <DialogFooter className="flex-row items-center gap-2 border-t px-5 py-3 sm:justify-end">
-            <div className="flex-1" />
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={selected.size === 0}
-              onClick={() => setConfirmOpen(true)}
-            >
-              <Trash2 className="mr-1.5 h-4 w-4" />
-              {selected.size === 0 ? "Delete" : `Delete ${selected.size}`}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Footer */}
+      <DialogFooter className="flex-row items-center gap-2 border-t px-5 py-3 sm:justify-end">
+        <div className="flex-1" />
+        <Button variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button
+          variant="destructive"
+          disabled={selected.size === 0}
+          onClick={() => setConfirmOpen(true)}
+        >
+          <Trash2 className="mr-1.5 h-4 w-4" />
+          {selected.size === 0 ? "Delete" : `Delete ${selected.size}`}
+        </Button>
+      </DialogFooter>
 
       {/* Confirm — hard delete */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader className="text-left">
             <DialogTitle className="text-base">
-              Delete {selected.size} task{selected.size === 1 ? "" : "s"} permanently?
+              Delete {selectedTasks.length} task
+              {selectedTasks.length === 1 ? "" : "s"} permanently?
             </DialogTitle>
             <DialogDescription>This can't be undone.</DialogDescription>
           </DialogHeader>
           <div className="max-h-40 divide-y overflow-auto rounded-md border">
-            {previewTasks.slice(0, 4).map((task) => (
+            {selectedTasks.slice(0, 4).map((task) => (
               <div
                 key={task.id}
                 className="flex items-center gap-2.5 px-3 py-2 text-xs"
@@ -385,9 +397,9 @@ export function CleanUpBacklogModal({
                 </span>
               </div>
             ))}
-            {selected.size > 4 && (
+            {selectedTasks.length > 4 && (
               <div className="bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-                + {selected.size - 4} more
+                + {selectedTasks.length - 4} more
               </div>
             )}
           </div>
@@ -396,7 +408,7 @@ export function CleanUpBacklogModal({
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleConfirmDelete}>
-              Delete {selected.size}
+              Delete {selectedTasks.length}
             </Button>
           </DialogFooter>
         </DialogContent>
