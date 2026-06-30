@@ -2,8 +2,8 @@ import * as React from "react";
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
-  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   closestCorners,
@@ -13,7 +13,6 @@ import {
 import {
   SortableContext,
   horizontalListSortingStrategy,
-  sortableKeyboardCoordinates,
   arrayMove,
 } from "@dnd-kit/sortable";
 import { snapCenterToCursor } from "@dnd-kit/modifiers";
@@ -53,12 +52,15 @@ export function IdeasBoardView({ boardId }: IdeasBoardViewProps) {
   const [addingColumn, setAddingColumn] = React.useState(false);
   const [columnDraft, setColumnDraft] = React.useState("");
 
+  // Mouse: instant distance-based drag; Touch: press-and-hold so swipes scroll.
+  // No KeyboardSensor — Space/Enter on a focused card would start an accidental
+  // keyboard drag (cards keep focus after a mouse drag).
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 5 },
+    useSensor(MouseSensor, {
+      activationConstraint: { distance: 4 },
     }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 8 },
     })
   );
 

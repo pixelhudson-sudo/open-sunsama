@@ -5,14 +5,13 @@ import {
   DragOverlay,
   MouseSensor,
   TouchSensor,
-  KeyboardSensor,
   useSensor,
   useSensors,
   type DragStartEvent,
   type DragOverEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { arrayMove } from "@dnd-kit/sortable";
 import { snapCenterToCursor } from "@dnd-kit/modifiers";
 import type { Task } from "@open-sunsama/types";
 import { useMoveTask, useReorderTasks, taskKeys } from "@/hooks/useTasks";
@@ -72,10 +71,12 @@ export function TasksDndProvider({ children }: TasksDndProviderProps) {
         delay: 200,
         tolerance: 8,
       },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
     })
+    // No KeyboardSensor on purpose: cards keep DOM focus after a mouse drag,
+    // and the KeyboardSensor treats Space/Enter on a focused card as "start
+    // dragging" — so pressing Enter (for another action) accidentally re-grabbed
+    // the card into a dragged state. Keyboard reordering is handled by the task
+    // shortcuts (move to top/bottom, defer, …) instead.
   );
 
   // Find target column from over ID
