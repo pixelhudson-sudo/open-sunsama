@@ -1,0 +1,145 @@
+import * as React from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  Button,
+  Input,
+  Label,
+} from "@/components/ui";
+import { RichTextEditor } from "@/components/ui/rich-text-editor.lazy";
+import { useCreateIdea } from "@/hooks/useIdeas";
+
+interface AddIdeaModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  boardId: string;
+  columnId: string;
+  columnName: string;
+}
+
+/**
+ * Add-idea modal — the same Dialog chrome + rich text editor as AddTaskModal
+ * (add-task-modal.tsx), trimmed to the Ideas model (title + notes, scoped to
+ * a column).
+ */
+export function AddIdeaModal({
+  open,
+  onOpenChange,
+  boardId,
+  columnId,
+  columnName,
+}: AddIdeaModalProps) {
+  const [title, setTitle] = React.useState("");
+  const [description, setDescription] = React.useState("");
+  const createIdea = useCreateIdea(boardId);
+
+  const titleInputRef = React.useRef<HTMLInputElement>(null);
+  const formRef = React.useRef<HTMLFormElement>(null);
+
+  // Focus title when opening.
+  React.useEffect(() => {
+    if (open) setTimeout(() => titleInputRef.current?.focus(), 100);
+  }, [open]);
+
+  // Reset on close.
+  React.useEffect(() => {
+    if (!open) {
+      setTitle("");
+      setDescription("");
+    }
+  }, [open]);
+
+  // ⌘/Ctrl+Enter to submit.
+  React.useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        formRef.current?.requestSubmit();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    await createIdea.mutateAsync({
+      boardId,
+      columnId,
+      title: title.trim(),
+      notes: description || undefined,
+    });
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md gap-0 overflow-hidden p-0">
+        <form ref={formRef} onSubmit={handleSubmit}>
+          {/* Header — title input */}
+          <div className="border-b px-4 pb-3 pt-4">
+            <Input
+              ref={titleInputRef}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Idea title..."
+              required
+              className="h-auto border-none p-0 pr-6 text-base font-medium shadow-none focus-visible:ring-0"
+            />
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Adding to <span className="font-medium">{columnName}</span>
+            </p>
+          </div>
+
+          {/* Body — notes */}
+          <div className="max-h-[50vh] space-y-2 overflow-y-auto px-4 py-4">
+            <Label className="text-sm font-medium text-muted-foreground">
+              Notes
+            </Label>
+            <RichTextEditor
+              value={description}
+              onChange={setDescription}
+              placeholder="Add details..."
+              minHeight="80px"
+            />
+          </div>
+
+          {/* Footer */}
+          <DialogFooter className="flex-row items-center justify-between gap-2 border-t bg-muted/20 px-4 py-3">
+            <span className="hidden items-center gap-1 text-xs text-muted-foreground/50 sm:inline-flex">
+              <kbd className="inline-flex h-5 select-none items-center rounded border bg-muted px-1 font-mono text-[10px] font-medium">
+                ⌘
+              </kbd>
+              <kbd className="inline-flex h-5 select-none items-center rounded border bg-muted px-1 font-mono text-[10px] font-medium">
+                ↵
+              </kbd>
+              <span className="ml-0.5">add idea</span>
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8"
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                className="h-8"
+                disabled={!title.trim() || createIdea.isPending}
+              >
+                {createIdea.isPending ? "Adding..." : "Add idea"}
+              </Button>
+            </div>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
