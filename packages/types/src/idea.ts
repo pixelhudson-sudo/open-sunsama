@@ -48,6 +48,9 @@ export interface Idea {
   promotedTaskId: string | null;
   createdAt: Date;
   updatedAt: Date;
+  /** Subtask totals, included by the list endpoint for the card badge. */
+  subtaskCount?: number;
+  subtaskDoneCount?: number;
 }
 
 // ───────────────────────── inputs ─────────────────────────
@@ -124,4 +127,32 @@ export interface IdeaFilterInput {
   boardId?: string;
   columnId?: string;
   completed?: boolean;
+}
+
+// ───────────────────────── idea subtasks ─────────────────────────
+
+/** A checklist item under an idea card. */
+export interface IdeaSubtask {
+  id: string;
+  ideaId: string;
+  title: string;
+  completed: boolean;
+  position: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateIdeaSubtaskInput {
+  title: string;
+  position?: number;
+}
+
+export interface UpdateIdeaSubtaskInput {
+  title?: string;
+  completed?: boolean;
+  position?: number;
+}
+
+export interface ReorderIdeaSubtasksInput {
+  subtaskIds: string[];
 }

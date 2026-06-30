@@ -29,6 +29,7 @@ import { calendarEventsRouter } from "./routes/calendar-events.js";
 import { releasesRouter } from "./routes/releases.js";
 import { taskSeriesRouter } from "./routes/task-series.js";
 import { ideasRouter } from "./routes/ideas.js";
+import { ideaSubtasksRouter } from "./routes/idea-subtasks.js";
 import { webhooksRouter } from "./routes/webhooks.js";
 import { registerAllWorkers } from "./workers/index.js";
 import {
@@ -166,6 +167,7 @@ app.route("/calendar-events", calendarEventsRouter);
 app.route("/releases", releasesRouter);
 app.route("/task-series", taskSeriesRouter);
 app.route("/ideas", ideasRouter);
+app.route("/ideas", ideaSubtasksRouter); // /ideas/:ideaId/subtasks
 // Public — no auth (provider webhooks). Identity verified by per-
 // channel state stored when we registered the watch.
 app.route("/webhooks", webhooksRouter);

@@ -81,6 +81,7 @@ import {
   type IdeasApi,
   type IdeaBoardsApi,
   type IdeaColumnsApi,
+  type IdeaSubtasksApi,
   type IdeaBoardWithColumns,
 } from "./ideas.js";
 export {
@@ -88,6 +89,7 @@ export {
   type IdeasApi,
   type IdeaBoardsApi,
   type IdeaColumnsApi,
+  type IdeaSubtasksApi,
   type IdeaBoardWithColumns,
 };
 

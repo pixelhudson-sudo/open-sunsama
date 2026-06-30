@@ -8,7 +8,9 @@ import {
   Label,
 } from "@/components/ui";
 import { RichTextEditor } from "@/components/ui/rich-text-editor.lazy";
+import { SubtaskList, type Subtask } from "@/components/kanban/subtask-list";
 import { useCreateIdea } from "@/hooks/useIdeas";
+import { useCreateIdeaSubtask } from "@/hooks/useIdeaSubtasks";
 
 interface AddIdeaModalProps {
   open: boolean;
@@ -32,7 +34,9 @@ export function AddIdeaModal({
 }: AddIdeaModalProps) {
   const [title, setTitle] = React.useState("");
   const [description, setDescription] = React.useState("");
+  const [subtasks, setSubtasks] = React.useState<Subtask[]>([]);
   const createIdea = useCreateIdea(boardId);
+  const createSubtask = useCreateIdeaSubtask();
 
   const titleInputRef = React.useRef<HTMLInputElement>(null);
   const formRef = React.useRef<HTMLFormElement>(null);
@@ -47,6 +51,7 @@ export function AddIdeaModal({
     if (!open) {
       setTitle("");
       setDescription("");
+      setSubtasks([]);
     }
   }, [open]);
 
@@ -66,12 +71,23 @@ export function AddIdeaModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
-    await createIdea.mutateAsync({
+    const idea = await createIdea.mutateAsync({
       boardId,
       columnId,
       title: title.trim(),
       notes: description || undefined,
     });
+    // Persist subtasks once we have the idea id.
+    if (subtasks.length > 0) {
+      await Promise.all(
+        subtasks.map((st) =>
+          createSubtask.mutateAsync({
+            ideaId: idea.id,
+            input: { title: st.title },
+          })
+        )
+      );
+    }
     onOpenChange(false);
   };
 
@@ -94,17 +110,25 @@ export function AddIdeaModal({
             </p>
           </div>
 
-          {/* Body — notes */}
-          <div className="max-h-[50vh] space-y-2 overflow-y-auto px-4 py-4">
-            <Label className="text-sm font-medium text-muted-foreground">
-              Notes
-            </Label>
-            <RichTextEditor
-              value={description}
-              onChange={setDescription}
-              placeholder="Add details..."
-              minHeight="80px"
-            />
+          {/* Body — subtasks + notes */}
+          <div className="max-h-[50vh] space-y-4 overflow-y-auto px-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-muted-foreground">
+                Subtasks
+              </Label>
+              <SubtaskList subtasks={subtasks} onSubtasksChange={setSubtasks} />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-muted-foreground">
+                Notes
+              </Label>
+              <RichTextEditor
+                value={description}
+                onChange={setDescription}
+                placeholder="Add details..."
+                minHeight="80px"
+              />
+            </div>
           </div>
 
           {/* Footer */}

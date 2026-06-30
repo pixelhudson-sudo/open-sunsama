@@ -67,3 +67,9 @@ export const ideaKeys = {
   lists: () => [...ideaKeys.all, "list"] as const,
   byBoard: (boardId: string) => [...ideaKeys.lists(), boardId] as const,
 };
+
+export const ideaSubtaskKeys = {
+  all: ["ideaSubtasks"] as const,
+  lists: () => [...ideaSubtaskKeys.all, "list"] as const,
+  list: (ideaId: string) => [...ideaSubtaskKeys.lists(), ideaId] as const,
+};

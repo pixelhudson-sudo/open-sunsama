@@ -200,5 +200,18 @@ export type {
   UpdateIdea,
 } from "./ideas";
 
+export {
+  ideaSubtasks,
+  ideaSubtasksRelations,
+  insertIdeaSubtaskSchema,
+  selectIdeaSubtaskSchema,
+  updateIdeaSubtaskSchema,
+} from "./idea-subtasks";
+export type {
+  IdeaSubtask,
+  NewIdeaSubtask,
+  UpdateIdeaSubtask,
+} from "./idea-subtasks";
+
 // Re-export relation helpers for query building
 export { relations } from "drizzle-orm";

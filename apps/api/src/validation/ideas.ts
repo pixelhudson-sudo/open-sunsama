@@ -82,3 +82,28 @@ export const reorderIdeasSchema = z.object({
 export const promoteIdeaSchema = z.object({
   scheduledDate: dateSchema.optional().nullable(),
 });
+
+// ───────────────────────── idea subtasks ─────────────────────────
+export const createIdeaSubtaskSchema = z.object({
+  title: z.string().min(1, "Title is required").max(500),
+  position: z.number().int().nonnegative().optional(),
+});
+
+export const updateIdeaSubtaskSchema = z.object({
+  title: z.string().min(1).max(500).optional(),
+  completed: z.boolean().optional(),
+  position: z.number().int().nonnegative().optional(),
+});
+
+export const reorderIdeaSubtasksSchema = z.object({
+  subtaskIds: z.array(uuidSchema).min(1),
+});
+
+export const ideaIdParamSchema = z.object({
+  ideaId: uuidSchema,
+});
+
+export const ideaSubtaskIdParamSchema = z.object({
+  ideaId: uuidSchema,
+  id: uuidSchema,
+});
