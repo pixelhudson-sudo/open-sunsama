@@ -122,6 +122,12 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: "Undo last action",
     category: "general",
   },
+  redo: {
+    key: "z",
+    modifiers: { cmd: true, shift: true },
+    description: "Redo last action",
+    category: "general",
+  },
   // Focus Mode shortcuts
   toggleFocusTimer: {
     key: " ",

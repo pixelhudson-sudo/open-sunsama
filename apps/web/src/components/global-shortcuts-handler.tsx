@@ -6,7 +6,7 @@ import {
   useShortcutsModal,
 } from "@/hooks/useKeyboardShortcuts";
 import { useSearch } from "@/hooks/useSearch";
-import { toast } from "@/hooks/use-toast";
+import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { prefetchCommandPalette } from "@/components/command-palette/command-palette.lazy";
 import { prefetchShortcutsModal } from "@/components/ui/shortcuts-modal.lazy";
 
@@ -22,6 +22,7 @@ interface GlobalShortcutsHandlerProps {
 export function GlobalShortcutsHandler({ onAddTask }: GlobalShortcutsHandlerProps) {
   const { setShowShortcutsModal } = useShortcutsModal();
   const { openSearch } = useSearch();
+  const { undo, redo } = useUndoRedo();
 
   React.useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -53,18 +54,24 @@ export function GlobalShortcutsHandler({ onAddTask }: GlobalShortcutsHandlerProp
         return;
       }
 
+      // Redo (Cmd+Shift+Z) — checked before undo since undo requires no shift
+      if (SHORTCUTS.redo && matchesShortcut(event, SHORTCUTS.redo)) {
+        event.preventDefault();
+        redo();
+        return;
+      }
+
       // Undo (Cmd+Z)
       if (SHORTCUTS.undo && matchesShortcut(event, SHORTCUTS.undo)) {
         event.preventDefault();
-        // TODO: Implement command history for actual undo functionality
-        toast({ title: "No commands to undo" });
+        undo();
         return;
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [setShowShortcutsModal, openSearch, onAddTask]);
+  }, [setShowShortcutsModal, openSearch, onAddTask, undo, redo]);
 
   return null; // This component renders nothing
 }
