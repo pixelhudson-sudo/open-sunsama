@@ -8,12 +8,18 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui";
-import { useIdeaBoards } from "@/hooks/useIdeas";
+import {
+  SHORTCUTS,
+  matchesShortcut,
+  shouldIgnoreShortcut,
+} from "@/hooks/useKeyboardShortcuts";
+import { useIdeaBoards, useIdeaColumns } from "@/hooks/useIdeas";
 import { BoardRail } from "@/components/ideas/board-rail";
 import { BoardRailContent } from "@/components/ideas/board-rail-content";
 import { BoardDialog } from "@/components/ideas/board-dialog";
 import { BoardIcon } from "@/components/ideas/board-icon";
 import { IdeasBoardView } from "@/components/ideas/ideas-board-view";
+import { AddIdeaModal } from "@/components/ideas/add-idea-modal";
 
 const ACTIVE_BOARD_KEY = "open-sunsama-ideas-active-board";
 
@@ -26,6 +32,34 @@ export default function IdeasPage() {
   );
   const [newBoardOpen, setNewBoardOpen] = React.useState(false);
   const [mobileSheetOpen, setMobileSheetOpen] = React.useState(false);
+  const [quickAddOpen, setQuickAddOpen] = React.useState(false);
+
+  // First column of the active board — the target for the "A" quick-add.
+  const { data: activeColumns } = useIdeaColumns(activeBoardId ?? undefined);
+  const firstColumn = React.useMemo(
+    () =>
+      activeColumns
+        ? [...activeColumns].sort((a, b) => a.position - b.position)[0]
+        : undefined,
+    [activeColumns]
+  );
+
+  // Press "A" on the Ideas page → open the Add Idea modal (not Add Task).
+  // Capture phase runs before the app-shell's global window listener, so the
+  // task modal never fires here.
+  React.useEffect(() => {
+    if (!activeBoardId || !firstColumn) return;
+    const handler = (e: KeyboardEvent) => {
+      if (shouldIgnoreShortcut(e)) return;
+      if (SHORTCUTS.addTask && matchesShortcut(e, SHORTCUTS.addTask)) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        setQuickAddOpen(true);
+      }
+    };
+    document.addEventListener("keydown", handler, true);
+    return () => document.removeEventListener("keydown", handler, true);
+  }, [activeBoardId, firstColumn?.id]);
 
   // Keep a valid active board selected as boards load / change.
   React.useEffect(() => {
@@ -153,6 +187,17 @@ export default function IdeasPage() {
         onOpenChange={setNewBoardOpen}
         onCreated={selectBoard}
       />
+
+      {/* "A" quick-add → adds to the active board's first column */}
+      {activeBoardId && firstColumn && (
+        <AddIdeaModal
+          open={quickAddOpen}
+          onOpenChange={setQuickAddOpen}
+          boardId={activeBoardId}
+          columnId={firstColumn.id}
+          columnName={firstColumn.name}
+        />
+      )}
     </div>
   );
 }
