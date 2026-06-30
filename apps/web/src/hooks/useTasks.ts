@@ -691,6 +691,13 @@ export function useBatchDeleteTasks() {
       context?.previousDetails?.forEach(([id, detail]) => {
         if (detail) queryClient.setQueryData(taskKeys.detail(id), detail);
       });
+      // The delete is chunked, so a mid-batch failure may have already
+      // removed some tasks server-side. Refetch to converge on server truth
+      // instead of trusting the rolled-back optimistic snapshot.
+      queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
+      queryClient.invalidateQueries({
+        queryKey: ["tasks", "search", "infinite"],
+      });
       toast({
         variant: "destructive",
         title: "Failed to delete tasks",

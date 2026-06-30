@@ -100,7 +100,14 @@ export function CleanUpBacklogModal({
 }
 
 function CleanUpBacklogBody({ onClose }: { onClose: () => void }) {
-  const { data: tasks, isLoading } = useTasks({ backlog: true, limit: 500 });
+  // Filter to pending server-side so the `limit` paginates the tasks this
+  // modal actually manages — otherwise completed undated tasks could fill the
+  // first page and hide/undercount the pending backlog.
+  const { data: tasks, isLoading } = useTasks({
+    backlog: true,
+    completed: false,
+    limit: 500,
+  });
   const batchDelete = useBatchDeleteTasks();
 
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
