@@ -619,6 +619,87 @@ export function useDeleteTask() {
 }
 
 /**
+ * Permanently delete many tasks at once (backlog cleanup).
+ *
+ * Optimistically removes every id from the list + infinite-search caches and
+ * rolls them all back on error. Shows a single count toast. No undo for v1 —
+ * the Clean up Backlog dialog gates this behind an explicit confirm.
+ */
+export function useBatchDeleteTasks() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (ids: string[]): Promise<string[]> => {
+      const api = getApi();
+      await api.tasks.batchDelete(ids);
+      return ids;
+    },
+    onMutate: async (ids) => {
+      const idSet = new Set(ids);
+      await queryClient.cancelQueries({ queryKey: taskKeys.lists() });
+      await queryClient.cancelQueries({
+        queryKey: ["tasks", "search", "infinite"],
+      });
+
+      const previousQueries = queryClient.getQueriesData<Task[]>({
+        queryKey: taskKeys.lists(),
+      });
+      const previousInfinite = queryClient.getQueriesData({
+        queryKey: ["tasks", "search", "infinite"],
+      });
+
+      queryClient.setQueriesData<Task[]>(
+        { queryKey: taskKeys.lists() },
+        (old) => (old ? old.filter((t) => !idSet.has(t.id)) : old)
+      );
+      queryClient.setQueriesData(
+        { queryKey: ["tasks", "search", "infinite"] },
+        (old: unknown) => {
+          if (!old || typeof old !== "object" || !("pages" in old)) return old;
+          const current = old as {
+            pages: Array<{ data: Task[]; meta?: unknown }>;
+            pageParams: unknown[];
+          };
+          return {
+            ...current,
+            pages: current.pages.map((page) => ({
+              ...page,
+              data: page.data.filter((t) => !idSet.has(t.id)),
+            })),
+          };
+        }
+      );
+      ids.forEach((id) =>
+        queryClient.removeQueries({ queryKey: taskKeys.detail(id) })
+      );
+
+      return { previousQueries, previousInfinite };
+    },
+    onError: (error, _ids, context) => {
+      context?.previousQueries?.forEach(([key, data]) => {
+        queryClient.setQueryData(key, data);
+      });
+      context?.previousInfinite?.forEach(([key, data]) => {
+        queryClient.setQueryData(key, data);
+      });
+      toast({
+        variant: "destructive",
+        title: "Failed to delete tasks",
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+    },
+    onSuccess: (ids) => {
+      // Calendar time blocks may reference deleted tasks.
+      queryClient.invalidateQueries({ queryKey: timeBlockKeys.lists() });
+      toast({
+        title: `Deleted ${ids.length} task${ids.length === 1 ? "" : "s"}`,
+        description: "They've been permanently removed.",
+      });
+    },
+  });
+}
+
+/**
  * Complete a task
  * When completing, automatically stops any running timer and saves actualMins
  */

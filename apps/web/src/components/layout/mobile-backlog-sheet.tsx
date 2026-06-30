@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Plus, Check, InboxIcon } from "lucide-react";
+import { Plus, Check, InboxIcon, Eraser } from "lucide-react";
 import type { Task } from "@open-sunsama/types";
 import { useTasks, useCreateTask, useCompleteTask } from "@/hooks/useTasks";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui";
 import { TaskCardContent } from "@/components/kanban/task-card-content";
 import { TaskContextMenu } from "@/components/kanban/task-context-menu";
+import { CleanUpBacklogModal } from "@/components/backlog/clean-up-backlog-modal";
 
 interface MobileBacklogSheetProps {
   /** Custom trigger element. If not provided, uses default FAB button */
@@ -30,6 +31,7 @@ interface MobileBacklogSheetProps {
  */
 export function MobileBacklogSheet({ trigger, onTaskClick }: MobileBacklogSheetProps) {
   const [open, setOpen] = React.useState(false);
+  const [isCleanupOpen, setIsCleanupOpen] = React.useState(false);
   const [newTaskTitle, setNewTaskTitle] = React.useState("");
   const [isAddingTask, setIsAddingTask] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -97,6 +99,7 @@ export function MobileBacklogSheet({ trigger, onTaskClick }: MobileBacklogSheetP
   );
 
   return (
+    <>
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>{trigger || defaultTrigger}</SheetTrigger>
       <SheetContent side="left" className="w-full max-w-sm p-0 flex flex-col">
@@ -109,15 +112,31 @@ export function MobileBacklogSheet({ trigger, onTaskClick }: MobileBacklogSheetP
                 {backlogTasks.length} task{backlogTasks.length !== 1 ? "s" : ""}
               </p>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-10 w-10" // Touch-friendly
-              onClick={() => setIsAddingTask(true)}
-            >
-              <Plus className="h-5 w-5" />
-              <span className="sr-only">Add task</span>
-            </Button>
+            <div className="flex items-center gap-1">
+              {backlogTasks.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 text-primary hover:text-primary"
+                  onClick={() => {
+                    setOpen(false);
+                    setIsCleanupOpen(true);
+                  }}
+                >
+                  <Eraser className="h-5 w-5" />
+                  <span className="sr-only">Clean up backlog</span>
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10" // Touch-friendly
+                onClick={() => setIsAddingTask(true)}
+              >
+                <Plus className="h-5 w-5" />
+                <span className="sr-only">Add task</span>
+              </Button>
+            </div>
           </div>
         </SheetHeader>
 
@@ -201,6 +220,9 @@ export function MobileBacklogSheet({ trigger, onTaskClick }: MobileBacklogSheetP
         )}
       </SheetContent>
     </Sheet>
+
+    <CleanUpBacklogModal open={isCleanupOpen} onOpenChange={setIsCleanupOpen} />
+    </>
   );
 }
 
