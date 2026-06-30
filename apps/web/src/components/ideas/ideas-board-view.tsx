@@ -17,7 +17,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { snapCenterToCursor } from "@dnd-kit/modifiers";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, GripVertical } from "lucide-react";
 import type { Idea, IdeaColumn } from "@open-sunsama/types";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui";
@@ -246,14 +246,39 @@ export function IdeasBoardView({ boardId }: IdeasBoardViewProps) {
             />
           </div>
         ) : activeColumn ? (
-          <div className="w-[272px] rotate-[1deg] rounded-xl border border-primary/30 bg-muted/90 p-2.5 shadow-xl ring-2 ring-primary/20">
+          // Drag preview of the whole column (header + its cards), rotated +
+          // elevated. Cards are static (non-interactive) clones to avoid
+          // registering duplicate sortable ids during the column drag.
+          <div className="flex w-[272px] rotate-[2deg] flex-col gap-2 rounded-xl border border-primary/40 bg-muted/95 p-2.5 shadow-xl ring-2 ring-primary/20">
             <div className="flex items-center gap-2 px-1">
+              <GripVertical className="h-4 w-4 text-muted-foreground" />
               <span className="text-[13px] font-semibold">
                 {activeColumn.name}
               </span>
               <span className="grid h-[18px] min-w-[20px] place-items-center rounded-full border border-border/60 bg-background px-1.5 text-[11px] font-medium tabular-nums text-muted-foreground">
-                {ideasByColumn.get(activeColumn.id)?.length ?? 0}
+                {(ideasByColumn.get(activeColumn.id) ?? []).length}
               </span>
+            </div>
+            <div className="flex max-h-[440px] flex-col gap-2 overflow-hidden">
+              {(ideasByColumn.get(activeColumn.id) ?? []).map((idea) => (
+                <div
+                  key={idea.id}
+                  className="rounded-lg border border-border/40 bg-card px-3 py-2.5 shadow-sm"
+                >
+                  <div className="flex items-start gap-2">
+                    <span className="mt-0.5 h-4 w-4 shrink-0 rounded-full border-[1.5px] border-muted-foreground/40" />
+                    <p
+                      className={cn(
+                        "min-w-0 flex-1 text-sm leading-snug line-clamp-2",
+                        idea.completedAt &&
+                          "text-muted-foreground line-through"
+                      )}
+                    >
+                      {idea.title}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         ) : null}
