@@ -81,7 +81,7 @@ export function IdeaColumnView({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "group/col flex w-[272px] shrink-0 flex-col gap-2 rounded-xl border border-border/60 bg-muted/40 p-2.5 transition-colors",
+        "group/col flex w-[272px] shrink-0 snap-start snap-always flex-col gap-2 rounded-xl border border-border/60 bg-muted/40 p-2.5 transition-colors",
         isOver && "border-primary/40 bg-primary/5"
       )}
     >

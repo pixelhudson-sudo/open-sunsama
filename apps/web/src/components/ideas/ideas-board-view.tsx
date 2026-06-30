@@ -183,7 +183,9 @@ export function IdeasBoardView({ boardId }: IdeasBoardViewProps) {
         setActiveColumn(null);
       }}
     >
-      <div className="flex flex-1 items-start gap-3.5 overflow-x-auto p-4">
+      {/* On mobile, snap each column into view while scrolling (Trello/Notion
+          style); free horizontal scroll from sm up. Matches the kanban board. */}
+      <div className="flex flex-1 items-start gap-3.5 overflow-x-auto p-4 snap-x snap-mandatory scroll-pl-4 sm:snap-none">
         <SortableContext
           items={columnIds}
           strategy={horizontalListSortingStrategy}
@@ -203,7 +205,7 @@ export function IdeasBoardView({ boardId }: IdeasBoardViewProps) {
 
         {/* Add column */}
         {addingColumn ? (
-          <div className="w-[272px] shrink-0 rounded-xl border border-border/60 bg-muted/40 p-2.5">
+          <div className="w-[272px] shrink-0 snap-start rounded-xl border border-border/60 bg-muted/40 p-2.5">
             <Input
               autoFocus
               value={columnDraft}
@@ -225,7 +227,7 @@ export function IdeasBoardView({ boardId }: IdeasBoardViewProps) {
           <button
             onClick={() => setAddingColumn(true)}
             className={cn(
-              "flex w-[272px] shrink-0 items-center gap-2 rounded-xl border border-dashed border-border/60 bg-transparent p-3 text-[13px] text-muted-foreground transition-colors",
+              "flex w-[272px] shrink-0 snap-start items-center gap-2 rounded-xl border border-dashed border-border/60 bg-transparent p-3 text-[13px] text-muted-foreground transition-colors",
               "hover:border-muted-foreground/50 hover:bg-muted/50 hover:text-foreground"
             )}
           >
