@@ -279,7 +279,7 @@ export function IdeaCard({ idea, boardId, columns, overlay }: IdeaCardProps) {
       {hasNotes && !isCompleted && (
         <HtmlContent
           html={idea.notes!}
-          className="pl-6 text-xs leading-snug text-muted-foreground line-clamp-2 [&_p]:m-0"
+          className="pl-6 text-xs leading-snug text-muted-foreground line-clamp-2 [&_p]:m-0 [&_img]:hidden"
         />
       )}
 
