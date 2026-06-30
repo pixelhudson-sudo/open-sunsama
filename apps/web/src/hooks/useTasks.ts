@@ -1,4 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import type {
   Task,
   CreateTaskInput,
@@ -9,7 +14,15 @@ import type {
 import { getApi } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { taskKeys, timeBlockKeys } from "@/lib/query-keys";
+
+/** Refetch the task-related caches after an undo/redo applies a raw change. */
+function invalidateTaskCaches(qc: QueryClient) {
+  qc.invalidateQueries({ queryKey: taskKeys.lists() });
+  qc.invalidateQueries({ queryKey: ["tasks", "search", "infinite"] });
+  qc.invalidateQueries({ queryKey: timeBlockKeys.lists() });
+}
 
 // Canonical task keys live in lib/query-keys so the WebSocket listener
 // (mounted at the app shell) can import only the keys without dragging
@@ -174,6 +187,7 @@ export function useTask(id: string) {
  */
 export function useCreateTask() {
   const queryClient = useQueryClient();
+  const { record } = useUndoRedo();
 
   return useMutation({
     mutationFn: async (data: CreateTaskInput): Promise<Task> => {
@@ -275,7 +289,7 @@ export function useCreateTask() {
         description: error instanceof Error ? error.message : "Unknown error",
       });
     },
-    onSuccess: (newTask, _data, context) => {
+    onSuccess: (newTask, input, context) => {
       // Replace optimistic placeholder with real server task.
       if (context?.tempId) {
         queryClient.removeQueries({
@@ -301,6 +315,26 @@ export function useCreateTask() {
         queryKey: ["tasks", "search", "infinite"],
       });
 
+      // Undo a create by deleting it; redo re-creates. The id can change
+      // across redo, so track it in a holder.
+      try {
+        const holder = { id: newTask.id };
+        record({
+          label: "Create task",
+          undo: async () => {
+            await getApi().tasks.delete(holder.id);
+            invalidateTaskCaches(queryClient);
+          },
+          redo: async () => {
+            const recreated = await getApi().tasks.create(input);
+            holder.id = recreated.id;
+            invalidateTaskCaches(queryClient);
+          },
+        });
+      } catch {
+        // never let history bookkeeping break task creation
+      }
+
       toast({
         title: "Task created",
         description: `"${newTask.title}" has been created.`,
@@ -314,6 +348,7 @@ export function useCreateTask() {
  */
 export function useUpdateTask() {
   const queryClient = useQueryClient();
+  const { record } = useUndoRedo();
 
   return useMutation({
     mutationFn: async ({
@@ -401,7 +436,7 @@ export function useUpdateTask() {
         description: error instanceof Error ? error.message : "Unknown error",
       });
     },
-    onSuccess: (updatedTask) => {
+    onSuccess: (updatedTask, variables, context) => {
       // Update with actual server data. We deliberately do not invalidate
       // lists here — the optimistic update + this setQueryData already
       // produces the canonical state, and the WebSocket echo will reconcile
@@ -414,6 +449,50 @@ export function useUpdateTask() {
           return old.map((t) => (t.id === updatedTask.id ? updatedTask : t));
         }
       );
+
+      // Record an undo that restores the previous values of the changed
+      // fields. We read the pre-mutation task from the snapshot captured in
+      // onMutate.
+      try {
+        const prev =
+          context?.previousTask ??
+          context?.previousQueries
+            ?.map(([, list]) => list?.find((t) => t.id === variables.id))
+            .find((t): t is Task => t !== undefined);
+        const dataRec = variables.data as unknown as Record<string, unknown>;
+        const changedKeys = Object.keys(dataRec).filter(
+          (k) => dataRec[k] !== undefined
+        );
+        if (prev && changedKeys.length > 0) {
+          const prevRec = prev as unknown as Record<string, unknown>;
+          const prevPatch: Record<string, unknown> = {};
+          const nextPatch: Record<string, unknown> = {};
+          for (const k of changedKeys) {
+            prevPatch[k] = prevRec[k] ?? null;
+            nextPatch[k] = dataRec[k];
+          }
+          const id = variables.id;
+          const label =
+            changedKeys.length === 1 && changedKeys[0] === "scheduledDate"
+              ? "Move task"
+              : changedKeys.length === 1 && changedKeys[0] === "priority"
+                ? "Change priority"
+                : "Edit task";
+          record({
+            label,
+            undo: async () => {
+              await getApi().tasks.update(id, prevPatch as UpdateTaskInput);
+              invalidateTaskCaches(queryClient);
+            },
+            redo: async () => {
+              await getApi().tasks.update(id, nextPatch as UpdateTaskInput);
+              invalidateTaskCaches(queryClient);
+            },
+          });
+        }
+      } catch {
+        // history bookkeeping must never break the update
+      }
     },
   });
 }
@@ -423,6 +502,7 @@ export function useUpdateTask() {
  */
 export function useDeleteTask() {
   const queryClient = useQueryClient();
+  const { record } = useUndoRedo();
 
   return useMutation({
     mutationFn: async (id: string): Promise<string> => {
@@ -490,11 +570,46 @@ export function useDeleteTask() {
         description: error instanceof Error ? error.message : "Unknown error",
       });
     },
-    onSuccess: () => {
+    onSuccess: (_deletedId, id, context) => {
       // Time blocks may reference this task (calendar shows the title);
       // a single targeted invalidation keeps the calendar honest. The WS
       // echo also covers cross-device.
       queryClient.invalidateQueries({ queryKey: timeBlockKeys.lists() });
+
+      // Undo a delete by recreating the task from the snapshot. The recreated
+      // task gets a new id (subtasks/attachments are not restored), tracked in
+      // a holder so redo deletes the right one.
+      try {
+        const task =
+          context?.previousDetail ??
+          context?.previousQueries
+            ?.map(([, list]) => list?.find((t) => t.id === id))
+            .find((t): t is Task => t !== undefined);
+        if (task) {
+          const holder = { id: task.id };
+          record({
+            label: "Delete task",
+            undo: async () => {
+              const recreated = await getApi().tasks.create({
+                title: task.title,
+                notes: task.notes ?? undefined,
+                scheduledDate: task.scheduledDate ?? undefined,
+                estimatedMins: task.estimatedMins ?? undefined,
+                priority: task.priority,
+              });
+              holder.id = recreated.id;
+              invalidateTaskCaches(queryClient);
+            },
+            redo: async () => {
+              await getApi().tasks.delete(holder.id);
+              invalidateTaskCaches(queryClient);
+            },
+          });
+        }
+      } catch {
+        // history bookkeeping must never break delete
+      }
+
       toast({
         title: "Task deleted",
         description: "The task has been deleted.",
@@ -509,6 +624,7 @@ export function useDeleteTask() {
  */
 export function useCompleteTask() {
   const queryClient = useQueryClient();
+  const { record } = useUndoRedo();
 
   return useMutation({
     mutationFn: async ({
@@ -616,7 +732,7 @@ export function useCompleteTask() {
         description: error instanceof Error ? error.message : "Unknown error",
       });
     },
-    onSuccess: (updatedTask) => {
+    onSuccess: (updatedTask, variables) => {
       queryClient.setQueryData(taskKeys.detail(updatedTask.id), updatedTask);
       queryClient.setQueriesData<Task[]>(
         { queryKey: taskKeys.lists() },
@@ -647,6 +763,28 @@ export function useCompleteTask() {
           };
         }
       );
+
+      // Undo toggles completion back.
+      try {
+        const { id, completed } = variables;
+        record({
+          label: completed ? "Complete task" : "Uncomplete task",
+          undo: async () => {
+            const api = getApi();
+            if (completed) await api.tasks.uncomplete(id);
+            else await api.tasks.complete(id);
+            invalidateTaskCaches(queryClient);
+          },
+          redo: async () => {
+            const api = getApi();
+            if (completed) await api.tasks.complete(id);
+            else await api.tasks.uncomplete(id);
+            invalidateTaskCaches(queryClient);
+          },
+        });
+      } catch {
+        // history bookkeeping must never break completion
+      }
     },
   });
 }
@@ -657,6 +795,7 @@ export function useCompleteTask() {
  */
 export function useMoveTask() {
   const queryClient = useQueryClient();
+  const { record } = useUndoRedo();
 
   return useMutation({
     mutationFn: async ({
@@ -715,7 +854,10 @@ export function useMoveTask() {
         queryClient.setQueryData(taskKeys.detail(id), updatedTask);
       }
 
-      return { previousQueries };
+      return {
+        previousQueries,
+        previousScheduledDate: sourceTask?.scheduledDate ?? null,
+      };
     },
     onError: (_error, _variables, context) => {
       // Rollback all queries on error
@@ -728,7 +870,7 @@ export function useMoveTask() {
         description: _error instanceof Error ? _error.message : "Unknown error",
       });
     },
-    onSuccess: (movedTask) => {
+    onSuccess: (movedTask, variables, context) => {
       // Reconcile with the server-authoritative task. Importantly, this
       // populates the source/target lists with the canonical position the
       // server picked when only `targetDate` was provided.
@@ -740,6 +882,27 @@ export function useMoveTask() {
           return old.map((t) => (t.id === movedTask.id ? movedTask : t));
         }
       );
+
+      // Undo a move by sending the task back to its previous day.
+      try {
+        const { id, targetDate } = variables;
+        const prevDate = context?.previousScheduledDate ?? null;
+        if (prevDate !== targetDate) {
+          record({
+            label: "Move task",
+            undo: async () => {
+              await getApi().tasks.update(id, { scheduledDate: prevDate });
+              invalidateTaskCaches(queryClient);
+            },
+            redo: async () => {
+              await getApi().tasks.update(id, { scheduledDate: targetDate });
+              invalidateTaskCaches(queryClient);
+            },
+          });
+        }
+      } catch {
+        // history bookkeeping must never break a move
+      }
     },
   });
 }
@@ -755,6 +918,7 @@ export function useMoveTask() {
  */
 export function useReorderTasks() {
   const queryClient = useQueryClient();
+  const { record } = useUndoRedo();
 
   return useMutation({
     mutationFn: async ({
@@ -783,6 +947,41 @@ export function useReorderTasks() {
       const previousInfiniteQueries = queryClient.getQueriesData({
         queryKey: ["tasks", "search", "infinite"],
       });
+
+      // Capture the pending order of every bucket this reorder touches — the
+      // destination plus any source bucket a task is moving *out of* — so undo
+      // can restore them all. (A cross-day move otherwise wouldn't return the
+      // task to its original day.)
+      const orderForBucket = (bucketKey: string): string[] => {
+        const entry = previousQueries.find(([key]) => {
+          const f = key[2] as ListFilter | undefined;
+          return bucketKey === "backlog"
+            ? f?.backlog === true
+            : f?.scheduledDate === bucketKey;
+        });
+        return (entry?.[1] ?? [])
+          .filter((t) => !t.completedAt)
+          .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+          .map((t) => t.id);
+      };
+      const prevBucketById = new Map<string, string>();
+      for (const [, list] of previousQueries) {
+        if (!list) continue;
+        for (const t of list) {
+          if (!prevBucketById.has(t.id)) {
+            prevBucketById.set(t.id, t.scheduledDate ?? "backlog");
+          }
+        }
+      }
+      const affectedBuckets = new Set<string>([date]);
+      for (const tid of taskIds) {
+        const src = prevBucketById.get(tid);
+        if (src && src !== date) affectedBuckets.add(src);
+      }
+      const prevBuckets: Record<string, string[]> = {};
+      for (const bucketKey of affectedBuckets) {
+        prevBuckets[bucketKey] = orderForBucket(bucketKey);
+      }
 
       // Build a lookup of every task currently visible in any list cache so
       // we can resolve tasks that the destination cache may not yet know
@@ -899,6 +1098,7 @@ export function useReorderTasks() {
         previousInfiniteQueries,
         targetScheduledDate,
         taskIds,
+        prevBuckets,
       };
     },
     onError: (error, _variables, context) => {
@@ -914,7 +1114,7 @@ export function useReorderTasks() {
         description: error instanceof Error ? error.message : "Unknown error",
       });
     },
-    onSuccess: (serverTasks, _variables, context) => {
+    onSuccess: (serverTasks, variables, context) => {
       // The server returns the canonical task list for the destination
       // bucket. Distribute it to every cache that classifies as a
       // destination for the target date / backlog, then update detail
@@ -938,6 +1138,36 @@ export function useReorderTasks() {
       });
       for (const t of serverTasks) {
         queryClient.setQueryData(taskKeys.detail(t.id), t);
+      }
+
+      // Undo by restoring the previous order of *every* bucket the reorder
+      // touched. For a within-day reorder that's just this day; for a
+      // cross-day move it's the destination day (minus the task) and the
+      // source day (with the task back in its old spot) — so the task
+      // actually returns to where it came from.
+      try {
+        const { date, taskIds } = variables;
+        const prevBuckets = context?.prevBuckets ?? {};
+        const buckets = Object.entries(prevBuckets).filter(
+          ([, order]) => order.length > 0
+        );
+        if (buckets.length > 0) {
+          record({
+            label: buckets.length > 1 ? "Move task" : "Reorder tasks",
+            undo: async () => {
+              for (const [bucket, order] of buckets) {
+                await getApi().tasks.reorder({ date: bucket, taskIds: order });
+              }
+              invalidateTaskCaches(queryClient);
+            },
+            redo: async () => {
+              await getApi().tasks.reorder({ date, taskIds });
+              invalidateTaskCaches(queryClient);
+            },
+          });
+        }
+      } catch {
+        // history bookkeeping must never break reorder
       }
     },
   });

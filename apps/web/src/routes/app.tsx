@@ -12,6 +12,7 @@ import {
   useShortcutsModal,
 } from "@/hooks/useKeyboardShortcuts";
 import { SearchProvider, useSearch } from "@/hooks/useSearch";
+import { UndoRedoProvider } from "@/hooks/useUndoRedo";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import {
   ShortcutsModal,
@@ -89,7 +90,9 @@ export default function AppLayout() {
     <HoveredTaskProvider>
       <ShortcutsProvider>
         <SearchProvider>
-          <AppLayoutInner />
+          <UndoRedoProvider>
+            <AppLayoutInner />
+          </UndoRedoProvider>
         </SearchProvider>
       </ShortcutsProvider>
     </HoveredTaskProvider>

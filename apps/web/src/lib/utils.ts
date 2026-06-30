@@ -78,16 +78,22 @@ export function stripHtmlTags(html: string): string {
  * Avatar URLs are stored as relative paths (/uploads/...) which need the API base URL prepended
  */
 export function getAvatarUrl(avatarUrl: string | null | undefined): string | undefined {
-  if (!avatarUrl) return undefined;
+  return resolveUploadUrl(avatarUrl) ?? undefined;
+}
 
-  // If already a full URL, return as-is
-  if (avatarUrl.startsWith("http://") || avatarUrl.startsWith("https://")) {
-    return avatarUrl;
-  }
-
-  // Prepend API base URL for relative paths
+/**
+ * Resolve an upload URL for display. Uploads are stored as relative proxy
+ * paths (`/uploads/...`) served by the API, so relative paths need the API
+ * base URL prepended; absolute URLs and data URIs pass through unchanged.
+ */
+export function resolveUploadUrl(
+  url: string | null | undefined
+): string | null {
+  if (!url) return null;
+  if (/^(https?:|data:|blob:)/.test(url)) return url;
   const apiBaseUrl = import.meta.env.VITE_API_URL || "http://localhost:3001";
-  return `${apiBaseUrl}${avatarUrl}`;
+  if (url.startsWith("/uploads/")) return `${apiBaseUrl}${url}`;
+  return url;
 }
 
 // ============================================================================

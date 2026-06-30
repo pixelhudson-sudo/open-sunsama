@@ -3,7 +3,7 @@
 import * as React from "react";
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { Download, X, FileText, Play, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, resolveUploadUrl } from "@/lib/utils";
 import { formatFileSize, getFileIcon } from "@/hooks/useUploadAttachment";
 
 /**
@@ -34,7 +34,7 @@ export function ImageNodeView({ node, deleteNode, selected }: NodeViewProps) {
           </div>
         ) : (
           <img
-            src={src}
+            src={resolveUploadUrl(src) ?? src}
             alt={alt || ""}
             title={title || ""}
             className="max-w-full h-auto rounded-lg"
@@ -96,7 +96,7 @@ export function VideoNodeView({ node, deleteNode, selected }: NodeViewProps) {
         ) : (
           <video
             ref={videoRef}
-            src={src}
+            src={resolveUploadUrl(src) ?? src}
             title={title || ""}
             controls
             className="max-w-full rounded-lg"
@@ -135,7 +135,7 @@ export function FileAttachmentNodeView({ node, deleteNode, selected }: NodeViewP
 
   const handleDownload = () => {
     // Open in new tab / trigger download
-    window.open(src, "_blank");
+    window.open(resolveUploadUrl(src) ?? src, "_blank");
   };
 
   return (

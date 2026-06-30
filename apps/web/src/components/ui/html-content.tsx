@@ -2,7 +2,7 @@
 
 import DOMPurify from "dompurify";
 import { useMemo } from "react";
-import { cn } from "@/lib/utils";
+import { cn, resolveUploadUrl } from "@/lib/utils";
 
 interface HtmlContentProps {
   html: string;
@@ -12,14 +12,20 @@ interface HtmlContentProps {
 export function HtmlContent({ html, className }: HtmlContentProps) {
   const sanitizedHtml = useMemo(() => {
     if (!html) return null;
-    return DOMPurify.sanitize(html, {
+    const clean = DOMPurify.sanitize(html, {
       ALLOWED_TAGS: [
         "p", "br", "strong", "b", "em", "i", "u", "s", "a",
-        "ul", "ol", "li", "blockquote", "pre", "code", "span", "div",
+        "ul", "ol", "li", "blockquote", "pre", "code", "span", "div", "img",
       ],
-      ALLOWED_ATTR: ["href", "target", "rel", "class"],
+      ALLOWED_ATTR: ["href", "target", "rel", "class", "src", "alt", "title"],
       ADD_ATTR: ["target"],
     });
+    // Uploads are stored as relative proxy paths — resolve to the API origin
+    // so <img> tags actually load when rendered on the frontend domain.
+    return clean.replace(
+      /src="(\/uploads\/[^"]*)"/g,
+      (_m, p1) => `src="${resolveUploadUrl(p1)}"`
+    );
   }, [html]);
 
   if (!sanitizedHtml) {

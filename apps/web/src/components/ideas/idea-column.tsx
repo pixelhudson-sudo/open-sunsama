@@ -106,7 +106,7 @@ export function IdeaColumnView({
               {...attributes}
               {...listeners}
               aria-label="Drag to reorder column"
-              className="-ml-0.5 cursor-grab touch-none text-muted-foreground/30 transition-colors hover:text-muted-foreground active:cursor-grabbing"
+              className="-ml-0.5 cursor-grab touch-none text-muted-foreground opacity-0 transition-opacity group-hover/col:opacity-100 active:cursor-grabbing"
             >
               <GripVertical className="h-4 w-4" />
             </button>
