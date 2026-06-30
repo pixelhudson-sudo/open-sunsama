@@ -11,6 +11,7 @@ import type {
   TaskFilterInput,
   ReorderTasksInput,
 } from "@open-sunsama/types";
+import { format } from "date-fns";
 import { getApi } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -717,12 +718,21 @@ export function useCompleteTask() {
     }): Promise<Task> => {
       const api = getApi();
 
-      if (completed) {
-        // Server's complete endpoint auto-stops any running timer and saves actualMins
-        return await api.tasks.complete(id);
-      } else {
+      if (!completed) {
         return await api.tasks.uncomplete(id);
       }
+
+      // Server's complete endpoint auto-stops any running timer and saves actualMins
+      const completedTask = await api.tasks.complete(id);
+
+      // Log the completion on the day it actually happened: if the task was
+      // scheduled for a different day (e.g. tomorrow), move it to today so it
+      // lands in today's Done list rather than staying on its planned day.
+      const today = format(new Date(), "yyyy-MM-dd");
+      if (completedTask.scheduledDate && completedTask.scheduledDate !== today) {
+        return await api.tasks.update(id, { scheduledDate: today });
+      }
+      return completedTask;
     },
     onMutate: async ({ id, completed }) => {
       await queryClient.cancelQueries({ queryKey: taskKeys.lists() });
@@ -741,27 +751,46 @@ export function useCompleteTask() {
 
       const optimisticCompletedAt = completed ? new Date() : null;
 
+      // Resolve the task's current scheduledDate so we can mirror the
+      // "log completion on today" move (see mutationFn) in the optimistic
+      // cache, and remember the original day so undo can restore it.
+      let originalScheduledDate = previousTask?.scheduledDate ?? null;
+      if (!previousTask) {
+        for (const [, list] of previousQueries) {
+          const found = list?.find((t) => t.id === id);
+          if (found) {
+            originalScheduledDate = found.scheduledDate;
+            break;
+          }
+        }
+      }
+
+      const today = format(new Date(), "yyyy-MM-dd");
+      const movedFromDate =
+        completed && originalScheduledDate && originalScheduledDate !== today
+          ? originalScheduledDate
+          : null;
+
+      // Apply completion (and the today-move when relevant) to a task in cache.
+      const patchTask = (task: Task): Task => ({
+        ...task,
+        completedAt: optimisticCompletedAt,
+        updatedAt: new Date(),
+        ...(movedFromDate ? { scheduledDate: today } : {}),
+      });
+
       if (previousTask) {
-        queryClient.setQueryData<Task>(taskKeys.detail(id), {
-          ...previousTask,
-          completedAt: optimisticCompletedAt,
-          updatedAt: new Date(),
-        });
+        queryClient.setQueryData<Task>(
+          taskKeys.detail(id),
+          patchTask(previousTask)
+        );
       }
 
       queryClient.setQueriesData<Task[]>(
         { queryKey: taskKeys.lists() },
         (old) => {
           if (!old) return old;
-          return old.map((task) =>
-            task.id === id
-              ? {
-                  ...task,
-                  completedAt: optimisticCompletedAt,
-                  updatedAt: new Date(),
-                }
-              : task
-          );
+          return old.map((task) => (task.id === id ? patchTask(task) : task));
         }
       );
 
@@ -779,20 +808,20 @@ export function useCompleteTask() {
             pages: current.pages.map((page) => ({
               ...page,
               data: page.data.map((task) =>
-                task.id === id
-                  ? {
-                      ...task,
-                      completedAt: optimisticCompletedAt,
-                      updatedAt: new Date(),
-                    }
-                  : task
+                task.id === id ? patchTask(task) : task
               ),
             })),
           };
         }
       );
 
-      return { previousTask, previousQueries, previousInfiniteQueries, id };
+      return {
+        previousTask,
+        previousQueries,
+        previousInfiniteQueries,
+        id,
+        movedFromDate,
+      };
     },
     onError: (error, _variables, context) => {
       if (context?.previousTask) {
@@ -813,7 +842,7 @@ export function useCompleteTask() {
         description: error instanceof Error ? error.message : "Unknown error",
       });
     },
-    onSuccess: (updatedTask, variables) => {
+    onSuccess: (updatedTask, variables, context) => {
       queryClient.setQueryData(taskKeys.detail(updatedTask.id), updatedTask);
       queryClient.setQueriesData<Task[]>(
         { queryKey: taskKeys.lists() },
@@ -845,21 +874,35 @@ export function useCompleteTask() {
         }
       );
 
-      // Undo toggles completion back.
+      // Undo toggles completion back. When completing also moved the task to
+      // today (movedFromDate set), undo restores its original planned day.
       try {
         const { id, completed } = variables;
+        const movedFromDate = context?.movedFromDate ?? null;
         record({
           label: completed ? "Complete task" : "Uncomplete task",
           undo: async () => {
             const api = getApi();
-            if (completed) await api.tasks.uncomplete(id);
-            else await api.tasks.complete(id);
+            if (completed) {
+              await api.tasks.uncomplete(id);
+              if (movedFromDate)
+                await api.tasks.update(id, { scheduledDate: movedFromDate });
+            } else {
+              await api.tasks.complete(id);
+            }
             invalidateTaskCaches(queryClient);
           },
           redo: async () => {
             const api = getApi();
-            if (completed) await api.tasks.complete(id);
-            else await api.tasks.uncomplete(id);
+            if (completed) {
+              await api.tasks.complete(id);
+              if (movedFromDate)
+                await api.tasks.update(id, {
+                  scheduledDate: format(new Date(), "yyyy-MM-dd"),
+                });
+            } else {
+              await api.tasks.uncomplete(id);
+            }
             invalidateTaskCaches(queryClient);
           },
         });
