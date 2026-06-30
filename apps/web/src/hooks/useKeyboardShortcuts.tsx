@@ -1,5 +1,7 @@
 import * as React from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Task } from "@open-sunsama/types";
+import { taskKeys } from "@/lib/query-keys";
 
 export interface ShortcutDefinition {
   key: string;
@@ -261,6 +263,65 @@ export function HoveredTaskProvider({
   const [hoveredSubtaskId, setHoveredSubtaskId] = React.useState<string | null>(
     null
   );
+  const queryClient = useQueryClient();
+  const lastCursor = React.useRef<{ x: number; y: number } | null>(null);
+
+  // Track the cursor so we can recompute the hovered card without a mouse move.
+  React.useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      lastCursor.current = { x: e.clientX, y: e.clientY };
+    };
+    document.addEventListener("mousemove", onMove, { passive: true });
+    return () => document.removeEventListener("mousemove", onMove);
+  }, []);
+
+  // Recompute which task card sits under the cursor, reading the fresh task
+  // object from the query cache. Used after a shortcut moves/removes a card:
+  // the DOM under a stationary cursor changes but no mouseenter fires, so the
+  // hovered target would otherwise go stale and the next shortcut would no-op.
+  const recomputeHoveredFromCursor = React.useCallback(() => {
+    const cur = lastCursor.current;
+    if (!cur) return;
+    const el = document.elementFromPoint(cur.x, cur.y);
+    const card =
+      el && "closest" in el
+        ? (el as Element).closest<HTMLElement>("[data-task-id]")
+        : null;
+    const id = card?.dataset.taskId ?? null;
+    if (!id) {
+      setHoveredTask((prev) => (prev ? null : prev));
+      return;
+    }
+    let next: Task | null = null;
+    const lists = queryClient.getQueriesData<Task[]>({
+      queryKey: taskKeys.lists(),
+    });
+    for (const [, data] of lists) {
+      const found = data?.find((t) => t.id === id);
+      if (found) {
+        next = found;
+        break;
+      }
+    }
+    setHoveredTask((prev) => (prev?.id === next?.id && prev === next ? prev : next));
+    setHoveredSubtaskId(null);
+  }, [queryClient]);
+
+  // Re-evaluate the hovered card whenever the task lists change (e.g. a
+  // shortcut completed/deferred/deleted a card), coalesced to one per frame.
+  React.useEffect(() => {
+    let raf = 0;
+    const unsub = queryClient.getQueryCache().subscribe((event) => {
+      const key = event?.query?.queryKey as unknown[] | undefined;
+      if (!key || key[0] !== "tasks" || key[1] !== "list") return;
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(recomputeHoveredFromCursor);
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      unsub();
+    };
+  }, [queryClient, recomputeHoveredFromCursor]);
 
   const value = React.useMemo(
     () => ({

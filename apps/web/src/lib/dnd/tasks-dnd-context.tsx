@@ -11,7 +11,6 @@ import {
   type DragStartEvent,
   type DragOverEvent,
   type DragEndEvent,
-  closestCenter,
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { snapCenterToCursor } from "@dnd-kit/modifiers";
@@ -157,6 +156,33 @@ export function TasksDndProvider({ children }: TasksDndProviderProps) {
 
       const overId = String(over.id);
 
+      // Read a column's tasks from the cache regardless of which `limit` /
+      // filter the query was made with. Day columns cache under
+      // { scheduledDate, limit: 200 } and the backlog under
+      // { backlog: true, limit: 500 }, so a bare { scheduledDate } /
+      // { backlog } lookup missed — which silently broke reordering within a
+      // column (the dropped task's order never updated).
+      const getColumnTasks = (column: string): Task[] => {
+        const isBacklogCol = column === "backlog";
+        const entries = queryClient.getQueriesData<Task[]>({
+          queryKey: taskKeys.lists(),
+        });
+        const byId = new Map<string, Task>();
+        for (const [key, data] of entries) {
+          if (!data) continue;
+          const filters = (key as unknown[])[2] as
+            | { scheduledDate?: string | null; backlog?: boolean }
+            | undefined;
+          if (!filters) continue;
+          const match = isBacklogCol
+            ? filters.backlog === true
+            : filters.scheduledDate === column;
+          if (!match) continue;
+          for (const t of data) if (!byId.has(t.id)) byId.set(t.id, t);
+        }
+        return [...byId.values()];
+      };
+
       // Get source column from drag data
       // The columnId must be set in useSortable data for both task cards and backlog tasks
       const sourceColumn = String(
@@ -196,13 +222,8 @@ export function TasksDndProvider({ children }: TasksDndProviderProps) {
         const targetDate =
           destinationColumn === "backlog" ? "backlog" : destinationColumn;
 
-        // Get the destination column's tasks
-        const isDestBacklog = destinationColumn === "backlog";
-        const destQueryKey = isDestBacklog
-          ? taskKeys.list({ backlog: true })
-          : taskKeys.list({ scheduledDate: destinationColumn });
-
-        const destTasks = queryClient.getQueryData<Task[]>(destQueryKey);
+        // Get the destination column's tasks (cache-key-agnostic)
+        const destTasks = getColumnTasks(destinationColumn);
 
         // Build the new task order for the destination column
         // Filter to only pending tasks (not completed) and exclude the moving task
@@ -245,17 +266,11 @@ export function TasksDndProvider({ children }: TasksDndProviderProps) {
 
       // Same column but different position - reorder within column
       if (!columnChanged && overTask && !isSameTask) {
-        // Get all tasks in this column from the cache
+        // Get all tasks in this column from the cache (cache-key-agnostic)
         const isBacklog = sourceColumn === "backlog";
-        const queryKey = isBacklog
-          ? taskKeys.list({ backlog: true })
-          : taskKeys.list({
-              scheduledDate: sourceColumn,
-            });
+        const columnTasks = getColumnTasks(sourceColumn);
 
-        const columnTasks = queryClient.getQueryData<Task[]>(queryKey);
-
-        if (columnTasks) {
+        if (columnTasks.length) {
           // Sort by position to get current order
           const sortedTasks = [...columnTasks].sort(
             (a, b) => (a.position ?? 0) - (b.position ?? 0)

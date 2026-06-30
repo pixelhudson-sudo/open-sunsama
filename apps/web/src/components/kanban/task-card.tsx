@@ -58,7 +58,6 @@ export function SortableTaskCard({
     isOver,
     active,
     index,
-    setActivatorNodeRef,
   } = useSortable({
     id: task.id,
     data: {
@@ -136,6 +135,7 @@ export function SortableTaskCard({
         {...attributes}
         {...listeners}
         onClick={handleClick}
+        data-task-id={task.id}
         className={cn("relative", isCurrentlyDragging && "opacity-30 z-50")}
       >
         {/* Drop indicator line - above */}
