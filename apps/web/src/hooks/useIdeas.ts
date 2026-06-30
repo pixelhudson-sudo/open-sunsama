@@ -539,10 +539,15 @@ export function usePromoteIdea(boardId: string | undefined) {
       }
       // The promote created a real task — refresh task lists.
       queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
+      const scheduled = result.task.scheduledDate;
+      const today = new Date().toISOString().slice(0, 10);
+      const title = !scheduled
+        ? "Added to Backlog"
+        : scheduled === today
+          ? "Added to Today"
+          : "Scheduled";
       toast({
-        title: result.task.scheduledDate
-          ? "Scheduled as a task"
-          : "Added to backlog",
+        title,
         description: `"${result.task.title}" is now in your planner.`,
       });
     },

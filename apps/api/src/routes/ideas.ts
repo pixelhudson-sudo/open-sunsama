@@ -13,10 +13,12 @@ import {
   asc,
   isNull,
   isNotNull,
+  inArray,
   sql,
   ideaBoards,
   ideaColumns,
   ideas,
+  ideaSubtasks,
   tasks,
 } from "@open-sunsama/database";
 import { NotFoundError, uuidSchema } from "@open-sunsama/utils";
@@ -370,11 +372,34 @@ ideasRouter.get(
     else if (filters.completed === "false")
       conditions.push(isNull(ideas.completedAt));
 
-    const data = await db
+    const rows = await db
       .select()
       .from(ideas)
       .where(and(...conditions))
       .orderBy(asc(ideas.position), asc(ideas.createdAt));
+
+    // Attach subtask totals for the card badge (single grouped query).
+    if (rows.length === 0) return c.json({ success: true, data: rows });
+    const counts = await db
+      .select({
+        ideaId: ideaSubtasks.ideaId,
+        total: sql<number>`count(*)::int`,
+        done: sql<number>`count(*) filter (where ${ideaSubtasks.completed})::int`,
+      })
+      .from(ideaSubtasks)
+      .where(
+        inArray(
+          ideaSubtasks.ideaId,
+          rows.map((r) => r.id)
+        )
+      )
+      .groupBy(ideaSubtasks.ideaId);
+    const byId = new Map(counts.map((c2) => [c2.ideaId, c2]));
+    const data = rows.map((r) => ({
+      ...r,
+      subtaskCount: byId.get(r.id)?.total ?? 0,
+      subtaskDoneCount: byId.get(r.id)?.done ?? 0,
+    }));
 
     return c.json({ success: true, data });
   }

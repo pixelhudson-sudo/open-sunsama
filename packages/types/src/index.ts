@@ -176,4 +176,8 @@ export type {
   ReorderIdeaBoardsInput,
   PromoteIdeaInput,
   IdeaFilterInput,
+  IdeaSubtask,
+  CreateIdeaSubtaskInput,
+  UpdateIdeaSubtaskInput,
+  ReorderIdeaSubtasksInput,
 } from "./idea.js";

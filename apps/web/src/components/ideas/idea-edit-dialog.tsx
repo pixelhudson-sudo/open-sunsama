@@ -1,17 +1,16 @@
 import * as React from "react";
+import { Check } from "lucide-react";
 import type { Idea } from "@open-sunsama/types";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
-  DialogFooter,
-  Button,
-  Input,
   Label,
 } from "@/components/ui";
 import { RichTextEditor } from "@/components/ui/rich-text-editor.lazy";
+import { cn } from "@/lib/utils";
 import { useUpdateIdea } from "@/hooks/useIdeas";
+import { IdeaSubtaskList } from "./idea-subtask-list";
 
 interface IdeaEditDialogProps {
   boardId: string;
@@ -20,6 +19,11 @@ interface IdeaEditDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+/**
+ * Idea editor — a richer, mostly-live editor that mirrors the task modal:
+ * completion checkbox + title (saved on blur), live subtasks, and rich
+ * notes (saved on close).
+ */
 export function IdeaEditDialog({
   boardId,
   idea,
@@ -37,60 +41,101 @@ export function IdeaEditDialog({
     }
   }, [open, idea]);
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const isCompleted = !!idea.completedAt;
+
+  const saveTitle = () => {
     const trimmed = title.trim();
-    if (!trimmed) return;
-    await updateIdea.mutateAsync({
+    if (!trimmed) {
+      setTitle(idea.title);
+      return;
+    }
+    if (trimmed !== idea.title) {
+      updateIdea.mutate({ id: idea.id, input: { title: trimmed } });
+    }
+  };
+
+  const handleOpenChange = (next: boolean) => {
+    if (!next) {
+      // Persist notes on close.
+      const cleaned = notes.replace(/<[^>]*>/g, "").trim().length ? notes : "";
+      if (cleaned !== (idea.notes ?? "")) {
+        updateIdea.mutate({
+          id: idea.id,
+          input: { notes: cleaned || null },
+        });
+      }
+    }
+    onOpenChange(next);
+  };
+
+  const toggleComplete = () => {
+    updateIdea.mutate({
       id: idea.id,
-      input: { title: trimmed, notes: notes.trim() ? notes.trim() : null },
+      input: { completedAt: isCompleted ? null : new Date() },
     });
-    onOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <form onSubmit={submit}>
-          <DialogHeader>
-            <DialogTitle>Edit idea</DialogTitle>
-          </DialogHeader>
-          <div className="mt-4 space-y-3">
-            <Input
-              autoFocus
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Idea title…"
-              maxLength={500}
-            />
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-muted-foreground">
-                Notes
-              </Label>
-              <RichTextEditor
-                value={notes}
-                onChange={setNotes}
-                placeholder="Add details..."
-                minHeight="80px"
-              />
-            </div>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-lg gap-0 overflow-hidden p-0">
+        <DialogTitle className="sr-only">Edit idea</DialogTitle>
+
+        {/* Header: checkbox + title */}
+        <div className="flex items-start gap-3 px-5 pb-3 pt-5">
+          <button
+            type="button"
+            onClick={toggleComplete}
+            aria-checked={isCompleted}
+            role="checkbox"
+            className={cn(
+              "mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-all",
+              isCompleted
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-muted-foreground/40 hover:border-primary"
+            )}
+          >
+            {isCompleted && <Check className="h-3 w-3" strokeWidth={3} />}
+          </button>
+          <textarea
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onBlur={saveTitle}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                (e.target as HTMLTextAreaElement).blur();
+              }
+            }}
+            rows={1}
+            placeholder="Idea title"
+            className={cn(
+              "mt-0.5 min-w-0 flex-1 resize-none border-none bg-transparent p-0 pr-6 text-lg font-semibold outline-none focus:ring-0",
+              isCompleted && "text-muted-foreground line-through"
+            )}
+          />
+        </div>
+
+        {/* Body: subtasks + notes */}
+        <div className="max-h-[60vh] space-y-4 overflow-y-auto border-t border-border/40 px-5 py-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Subtasks
+            </Label>
+            <IdeaSubtaskList ideaId={idea.id} />
           </div>
-          <DialogFooter className="mt-5">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={!title.trim() || updateIdea.isPending}
-            >
-              Save
-            </Button>
-          </DialogFooter>
-        </form>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Notes
+            </Label>
+            <RichTextEditor
+              value={notes}
+              onChange={setNotes}
+              placeholder="Add details..."
+              minHeight="120px"
+            />
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );

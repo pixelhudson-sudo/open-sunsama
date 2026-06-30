@@ -19,6 +19,9 @@ import type {
   ReorderIdeaBoardsInput,
   PromoteIdeaInput,
   IdeaFilterInput,
+  IdeaSubtask,
+  CreateIdeaSubtaskInput,
+  UpdateIdeaSubtaskInput,
 } from "@open-sunsama/types";
 import type { OpenSunsamaClient, RequestOptions } from "./client.js";
 
@@ -68,10 +71,37 @@ export interface IdeaColumnsApi {
   ): Promise<IdeaColumn[]>;
 }
 
+/** Idea subtasks sub-API */
+export interface IdeaSubtasksApi {
+  list(ideaId: string, options?: RequestOptions): Promise<IdeaSubtask[]>;
+  create(
+    ideaId: string,
+    input: CreateIdeaSubtaskInput,
+    options?: RequestOptions
+  ): Promise<IdeaSubtask>;
+  update(
+    ideaId: string,
+    subtaskId: string,
+    input: UpdateIdeaSubtaskInput,
+    options?: RequestOptions
+  ): Promise<IdeaSubtask>;
+  delete(
+    ideaId: string,
+    subtaskId: string,
+    options?: RequestOptions
+  ): Promise<void>;
+  reorder(
+    ideaId: string,
+    subtaskIds: string[],
+    options?: RequestOptions
+  ): Promise<IdeaSubtask[]>;
+}
+
 /** Full Ideas API */
 export interface IdeasApi {
   boards: IdeaBoardsApi;
   columns: IdeaColumnsApi;
+  subtasks: IdeaSubtasksApi;
   list(filters?: IdeaFilterInput, options?: RequestOptions): Promise<Idea[]>;
   create(input: CreateIdeaInput, options?: RequestOptions): Promise<Idea>;
   update(
@@ -268,6 +298,66 @@ export function createIdeasApi(client: OpenSunsamaClient): IdeasApi {
         ApiResponseWrapper<{ idea: Idea; task: Task }>
       >(`ideas/${id}/promote`, input ?? {}, options);
       return res.data;
+    },
+
+    subtasks: {
+      async list(
+        ideaId: string,
+        options?: RequestOptions
+      ): Promise<IdeaSubtask[]> {
+        const res = await client.get<ApiResponseWrapper<IdeaSubtask[]>>(
+          `ideas/${ideaId}/subtasks`,
+          options
+        );
+        return res.data ?? [];
+      },
+      async create(
+        ideaId: string,
+        input: CreateIdeaSubtaskInput,
+        options?: RequestOptions
+      ): Promise<IdeaSubtask> {
+        const res = await client.post<ApiResponseWrapper<IdeaSubtask>>(
+          `ideas/${ideaId}/subtasks`,
+          input,
+          options
+        );
+        return res.data;
+      },
+      async update(
+        ideaId: string,
+        subtaskId: string,
+        input: UpdateIdeaSubtaskInput,
+        options?: RequestOptions
+      ): Promise<IdeaSubtask> {
+        const res = await client.patch<ApiResponseWrapper<IdeaSubtask>>(
+          `ideas/${ideaId}/subtasks/${subtaskId}`,
+          input,
+          options
+        );
+        return res.data;
+      },
+      async delete(
+        ideaId: string,
+        subtaskId: string,
+        options?: RequestOptions
+      ): Promise<void> {
+        await client.delete<ApiResponseWrapper<void>>(
+          `ideas/${ideaId}/subtasks/${subtaskId}`,
+          options
+        );
+      },
+      async reorder(
+        ideaId: string,
+        subtaskIds: string[],
+        options?: RequestOptions
+      ): Promise<IdeaSubtask[]> {
+        const res = await client.post<ApiResponseWrapper<IdeaSubtask[]>>(
+          `ideas/${ideaId}/subtasks/reorder`,
+          { subtaskIds },
+          options
+        );
+        return res.data ?? [];
+      },
     },
   };
 }

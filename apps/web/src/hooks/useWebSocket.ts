@@ -15,6 +15,7 @@ import {
   calendarKeys,
   ideaBoardKeys,
   ideaKeys,
+  ideaSubtaskKeys,
 } from "@/lib/query-keys";
 
 /**
@@ -213,7 +214,7 @@ function handleWebSocketEvent(
       batcher.schedule(ideaBoardKeys.lists());
       const payload =
         event.payload && typeof event.payload === "object"
-          ? (event.payload as { boardId?: string })
+          ? (event.payload as { boardId?: string; ideaId?: string })
           : undefined;
       if (payload?.boardId) {
         batcher.schedule(ideaBoardKeys.columns(payload.boardId));
@@ -221,6 +222,11 @@ function handleWebSocketEvent(
       } else {
         // Board-level events without a boardId (rare) — refetch all ideas.
         batcher.schedule(ideaKeys.lists());
+      }
+      // idea:updated also fires on subtask changes — keep the card's
+      // subtask list in sync across tabs.
+      if (payload?.ideaId) {
+        batcher.schedule(ideaSubtaskKeys.list(payload.ideaId));
       }
       break;
     }
