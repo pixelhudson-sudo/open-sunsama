@@ -455,37 +455,26 @@ tasksRouter.delete(
     const { ids } = c.req.valid("query");
     const db = getDb();
 
-    // Only delete tasks that actually belong to this user.
-    const existing = await db
-      .select({ id: tasks.id, scheduledDate: tasks.scheduledDate })
-      .from(tasks)
-      .where(and(inArray(tasks.id, ids), eq(tasks.userId, userId)));
+    // Delete only the caller's own tasks and get the deleted rows back in a
+    // single round-trip (the userId clause makes this safe against IDOR).
+    const deleted = await db
+      .delete(tasks)
+      .where(and(inArray(tasks.id, ids), eq(tasks.userId, userId)))
+      .returning({ id: tasks.id, scheduledDate: tasks.scheduledDate });
 
-    if (existing.length > 0) {
-      await db.delete(tasks).where(
-        and(
-          inArray(
-            tasks.id,
-            existing.map((t) => t.id)
-          ),
-          eq(tasks.userId, userId)
-        )
-      );
-
-      // Publish a realtime event per task (fire and forget) so other
-      // devices/columns stay in sync, mirroring the single-delete route.
-      for (const t of existing) {
-        publishEvent(userId, "task:deleted", {
-          taskId: t.id,
-          scheduledDate: t.scheduledDate,
-        });
-      }
+    // Publish a realtime event per task (fire and forget) so other
+    // devices/columns stay in sync, mirroring the single-delete route.
+    for (const t of deleted) {
+      publishEvent(userId, "task:deleted", {
+        taskId: t.id,
+        scheduledDate: t.scheduledDate,
+      });
     }
 
     return c.json({
       success: true,
-      data: { deleted: existing.length },
-      message: `Deleted ${existing.length} task${existing.length === 1 ? "" : "s"}`,
+      data: { deleted: deleted.length },
+      message: `Deleted ${deleted.length} task${deleted.length === 1 ? "" : "s"}`,
     });
   }
 );

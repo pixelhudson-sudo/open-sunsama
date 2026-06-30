@@ -647,6 +647,12 @@ export function useBatchDeleteTasks() {
       const previousInfinite = queryClient.getQueriesData({
         queryKey: ["tasks", "search", "infinite"],
       });
+      // Snapshot the per-task detail caches before removing them so a failed
+      // batch can fully restore them (parity with useDeleteTask).
+      const previousDetails = ids.map(
+        (id) =>
+          [id, queryClient.getQueryData<Task>(taskKeys.detail(id))] as const
+      );
 
       queryClient.setQueriesData<Task[]>(
         { queryKey: taskKeys.lists() },
@@ -673,7 +679,7 @@ export function useBatchDeleteTasks() {
         queryClient.removeQueries({ queryKey: taskKeys.detail(id) })
       );
 
-      return { previousQueries, previousInfinite };
+      return { previousQueries, previousInfinite, previousDetails };
     },
     onError: (error, _ids, context) => {
       context?.previousQueries?.forEach(([key, data]) => {
@@ -681,6 +687,9 @@ export function useBatchDeleteTasks() {
       });
       context?.previousInfinite?.forEach(([key, data]) => {
         queryClient.setQueryData(key, data);
+      });
+      context?.previousDetails?.forEach(([id, detail]) => {
+        if (detail) queryClient.setQueryData(taskKeys.detail(id), detail);
       });
       toast({
         variant: "destructive",

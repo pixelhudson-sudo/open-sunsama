@@ -27,7 +27,7 @@ const BUCKETS: Array<{ key: string; label: string; minDays: number }> = [
   { key: "6mo", label: "6 months +", minDays: 180 },
   { key: "3-6mo", label: "3–6 months", minDays: 90 },
   { key: "1-3mo", label: "1–3 months", minDays: 30 },
-  { key: "8-30d", label: "8–30 days", minDays: 7 },
+  { key: "8-30d", label: "8–30 days", minDays: 8 },
   { key: "0-7d", label: "Last 7 days", minDays: 0 },
 ];
 
@@ -37,11 +37,19 @@ function ageDays(task: Task): number {
   return Math.max(0, Math.floor((Date.now() - created) / 86_400_000));
 }
 
+// Label thresholds mirror the bucket boundaries (days < 30 → days/weeks,
+// 30+ → months) so a row's age reads coherently within its section.
 function ageLabel(days: number): string {
   if (days <= 0) return "today";
-  if (days < 14) return `${days} day${days === 1 ? "" : "s"}`;
-  if (days < 60) return `${Math.round(days / 7)} weeks`;
-  if (days < 365) return `${Math.round(days / 30)} months`;
+  if (days < 7) return `${days} day${days === 1 ? "" : "s"}`;
+  if (days < 30) {
+    const weeks = Math.round(days / 7);
+    return `${weeks} week${weeks === 1 ? "" : "s"}`;
+  }
+  if (days < 365) {
+    const months = Math.round(days / 30);
+    return `${months} month${months === 1 ? "" : "s"}`;
+  }
   const years = Math.floor(days / 365);
   return `${years} year${years === 1 ? "" : "s"}`;
 }
@@ -96,9 +104,9 @@ function CleanUpBacklogBody({ onClose }: { onClose: () => void }) {
   const batchDelete = useBatchDeleteTasks();
 
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
+  // All buckets start expanded; users can collapse any of them manually.
   const [collapsed, setCollapsed] = React.useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = React.useState(false);
-  const collapseInitialized = React.useRef(false);
 
   // Pending (not completed) backlog tasks grouped into age buckets.
   const groups = React.useMemo(() => {
@@ -125,14 +133,22 @@ function CleanUpBacklogBody({ onClose }: { onClose: () => void }) {
   );
   const total = allTasks.length;
 
-  // Collapse every bucket except the first (oldest) non-empty one — once, as
-  // soon as data has loaded. Guarded by a ref so user-toggled collapse state
-  // is never clobbered when the list later changes (e.g. after a delete).
+  // Keep the selection in sync with the live list: if a selected task
+  // disappears (background refetch, delete settle), drop its id so every
+  // count and the master checkbox reflect exactly what will be deleted.
   React.useEffect(() => {
-    if (collapseInitialized.current || groups.length === 0) return;
-    collapseInitialized.current = true;
-    setCollapsed(new Set(groups.slice(1).map((g) => g.key)));
-  }, [groups]);
+    setSelected((prev) => {
+      if (prev.size === 0) return prev;
+      const live = new Set(allTasks.map((t) => t.id));
+      let changed = false;
+      const next = new Set<string>();
+      prev.forEach((id) => {
+        if (live.has(id)) next.add(id);
+        else changed = true;
+      });
+      return changed ? next : prev;
+    });
+  }, [allTasks]);
 
   const selecting = selected.size > 0;
 
@@ -162,8 +178,10 @@ function CleanUpBacklogBody({ onClose }: { onClose: () => void }) {
   };
 
   const toggleMaster = () => {
+    // Tri-state: everything selected → clear; otherwise (none or mixed) →
+    // select all. (Pruning keeps prev.size ≤ total.)
     setSelected((prev) =>
-      prev.size > 0 ? new Set() : new Set(allTasks.map((t) => t.id))
+      prev.size >= total ? new Set() : new Set(allTasks.map((t) => t.id))
     );
   };
 
@@ -231,7 +249,7 @@ function CleanUpBacklogBody({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* Body */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="min-h-0 flex-1">
         <div className="px-3 py-1">
           {isLoading ? (
             <div className="space-y-2 p-2">
