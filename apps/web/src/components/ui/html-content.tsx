@@ -3,6 +3,7 @@
 import DOMPurify from "dompurify";
 import { useMemo } from "react";
 import { cn, resolveUploadUrl } from "@/lib/utils";
+import { useLightbox } from "./lightbox";
 
 interface HtmlContentProps {
   html: string;
@@ -10,6 +11,7 @@ interface HtmlContentProps {
 }
 
 export function HtmlContent({ html, className }: HtmlContentProps) {
+  const lightbox = useLightbox();
   const sanitizedHtml = useMemo(() => {
     if (!html) return null;
     const clean = DOMPurify.sanitize(html, {
@@ -42,6 +44,20 @@ export function HtmlContent({ html, className }: HtmlContentProps) {
 
   return (
     <div
+      onClick={(e) => {
+        // Click an inline image to preview it in the lightbox.
+        const target = e.target as HTMLElement;
+        if (target.tagName === "IMG") {
+          const img = target as HTMLImageElement;
+          lightbox.open([
+            {
+              url: img.currentSrc || img.src,
+              filename: img.alt || "Image",
+              contentType: "image/*",
+            },
+          ]);
+        }
+      }}
       className={cn(
         // Compact text like Linear - smaller font, tighter spacing
         "prose dark:prose-invert max-w-none",
@@ -50,6 +66,7 @@ export function HtmlContent({ html, className }: HtmlContentProps) {
         "[&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5",
         "prose-headings:font-semibold prose-headings:my-1 prose-h1:text-base prose-h2:text-sm prose-h3:text-[13px]",
         "prose-a:underline prose-a:underline-offset-2",
+        "[&_img]:cursor-zoom-in",
         className
       )}
       dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
