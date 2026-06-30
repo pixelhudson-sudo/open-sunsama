@@ -1,9 +1,18 @@
 import * as React from "react";
-import { X, ChevronLeft, ChevronRight, Download, ZoomIn, ZoomOut } from "lucide-react";
-import { cn } from "@/lib/utils";
+import {
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  ZoomIn,
+  ZoomOut,
+  FileText,
+  ExternalLink,
+} from "lucide-react";
+import { cn, resolveUploadUrl } from "@/lib/utils";
 import { Button } from "./button";
 
-interface LightboxItem {
+export interface LightboxItem {
   url: string;
   filename: string;
   contentType: string;
@@ -111,6 +120,8 @@ export function Lightbox({ items, initialIndex = 0, open, onClose }: LightboxPro
 
   const isImage = currentItem.contentType.startsWith("image/");
   const isVideo = currentItem.contentType.startsWith("video/");
+  const isPdf = currentItem.contentType === "application/pdf";
+  const isPreviewable = isImage || isVideo || isPdf;
 
   const handleDownload = () => {
     const link = document.createElement("a");
@@ -306,6 +317,48 @@ export function Lightbox({ items, initialIndex = 0, open, onClose }: LightboxPro
             Your browser does not support the video tag.
           </video>
         )}
+
+        {isPdf && (
+          <iframe
+            src={currentItem.url}
+            title={currentItem.filename}
+            className="h-full w-full bg-white"
+          />
+        )}
+
+        {/* Non-previewable files (docs, zips, etc.) — browsers can't render
+            them inline, so show a card with download / open actions. */}
+        {!isPreviewable && (
+          <div className="flex flex-col items-center gap-5 px-6 text-center text-white">
+            <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-white/10">
+              <FileText className="h-12 w-12 text-white/80" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-base font-medium">{currentItem.filename}</p>
+              <p className="text-sm text-white/50">
+                Preview isn’t available for this file type.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                onClick={handleDownload}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Download
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => window.open(currentItem.url, "_blank")}
+                className="gap-2 border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Open in new tab
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Navigation arrows */}
@@ -365,4 +418,62 @@ export function Lightbox({ items, initialIndex = 0, open, onClose }: LightboxPro
       )}
     </div>
   );
+}
+
+interface LightboxContextValue {
+  /**
+   * Open the lightbox with one or more items. Relative `/uploads/...` urls are
+   * resolved to the API origin automatically, so callers can pass raw node
+   * `src` values.
+   */
+  open: (items: LightboxItem[], initialIndex?: number) => void;
+}
+
+const LightboxContext = React.createContext<LightboxContextValue>({
+  // No-op fallback so components used outside the provider don't crash.
+  open: () => {},
+});
+
+/**
+ * App-wide lightbox. Mount once near the root; any descendant can call
+ * `useLightbox().open(items)` to preview images, video, PDFs, or files in a
+ * full-screen overlay.
+ */
+export function LightboxProvider({ children }: { children: React.ReactNode }) {
+  const [state, setState] = React.useState<{
+    items: LightboxItem[];
+    index: number;
+  } | null>(null);
+
+  const open = React.useCallback(
+    (items: LightboxItem[], initialIndex = 0) => {
+      const resolved = items
+        .map((item) => ({
+          ...item,
+          url: resolveUploadUrl(item.url) ?? item.url,
+        }))
+        .filter((item) => item.url);
+      if (resolved.length === 0) return;
+      setState({ items: resolved, index: initialIndex });
+    },
+    []
+  );
+
+  const value = React.useMemo(() => ({ open }), [open]);
+
+  return (
+    <LightboxContext.Provider value={value}>
+      {children}
+      <Lightbox
+        items={state?.items ?? []}
+        initialIndex={state?.index ?? 0}
+        open={state !== null}
+        onClose={() => setState(null)}
+      />
+    </LightboxContext.Provider>
+  );
+}
+
+export function useLightbox() {
+  return React.useContext(LightboxContext);
 }

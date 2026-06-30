@@ -2,9 +2,10 @@
 
 import * as React from "react";
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
-import { Download, X, FileText, Play, Loader2 } from "lucide-react";
+import { Download, X, FileText, Play, Loader2, Maximize2 } from "lucide-react";
 import { cn, resolveUploadUrl } from "@/lib/utils";
 import { formatFileSize, getFileIcon } from "@/hooks/useUploadAttachment";
+import { useLightbox } from "./lightbox";
 
 /**
  * Image Node View Component
@@ -14,6 +15,14 @@ export function ImageNodeView({ node, deleteNode, selected }: NodeViewProps) {
   const { src, alt, title } = node.attrs;
   const [isLoading, setIsLoading] = React.useState(true);
   const [hasError, setHasError] = React.useState(false);
+  const lightbox = useLightbox();
+
+  const openPreview = () => {
+    if (hasError) return;
+    lightbox.open([
+      { url: src, filename: alt || title || "Image", contentType: "image/*" },
+    ]);
+  };
 
   return (
     <NodeViewWrapper
@@ -43,7 +52,8 @@ export function ImageNodeView({ node, deleteNode, selected }: NodeViewProps) {
             // Disable the browser's native image drag so ProseMirror's node
             // drag (move) takes over instead of dropping a copy.
             draggable={false}
-            className="max-w-full h-auto rounded-lg"
+            onClick={openPreview}
+            className="max-w-full h-auto rounded-lg cursor-zoom-in"
             onLoad={() => setIsLoading(false)}
             onError={() => {
               setIsLoading(false);
@@ -51,6 +61,20 @@ export function ImageNodeView({ node, deleteNode, selected }: NodeViewProps) {
             }}
             style={{ maxHeight: "400px" }}
           />
+        )}
+        {/* Expand-to-preview on hover */}
+        {!hasError && (
+          <button
+            onClick={openPreview}
+            className={cn(
+              "absolute top-2 left-2 p-1.5 rounded-full bg-black/60 text-white",
+              "opacity-0 group-hover:opacity-100 transition-opacity",
+              "hover:bg-black/80 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-white"
+            )}
+            aria-label="Preview image"
+          >
+            <Maximize2 className="h-4 w-4" />
+          </button>
         )}
         {/* Delete button on hover */}
         <button
@@ -138,10 +162,17 @@ export function VideoNodeView({ node, deleteNode, selected }: NodeViewProps) {
 export function FileAttachmentNodeView({ node, deleteNode, selected }: NodeViewProps) {
   const { src, filename, contentType, size } = node.attrs;
   const icon = getFileIcon(contentType);
+  const lightbox = useLightbox();
 
   const handleDownload = () => {
     // Open in new tab / trigger download
     window.open(resolveUploadUrl(src) ?? src, "_blank");
+  };
+
+  const openPreview = () => {
+    lightbox.open([
+      { url: src, filename: filename || "File", contentType: contentType || "" },
+    ]);
   };
 
   return (
@@ -154,19 +185,26 @@ export function FileAttachmentNodeView({ node, deleteNode, selected }: NodeViewP
           selected && "ring-2 ring-primary ring-offset-2"
         )}
       >
-        {/* File Icon */}
-        <div className="flex-shrink-0 text-2xl">{icon}</div>
-
-        {/* File Info */}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate" title={filename}>
-            {filename}
-          </p>
-          <p className="text-xs text-muted-foreground">{formatFileSize(size)}</p>
-        </div>
+        {/* File Icon + Info — click to preview in a modal */}
+        <button
+          type="button"
+          onClick={openPreview}
+          className="flex flex-1 items-center gap-3 min-w-0 text-left cursor-pointer focus:outline-none"
+          aria-label={`Preview ${filename}`}
+        >
+          <div className="flex-shrink-0 text-2xl">{icon}</div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate" title={filename}>
+              {filename}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {formatFileSize(size)}
+            </p>
+          </div>
+        </button>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-1">
+        <div className="flex flex-shrink-0 items-center gap-1">
           <button
             onClick={handleDownload}
             className={cn(

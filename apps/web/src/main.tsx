@@ -11,6 +11,7 @@ import { HelmetProvider } from "react-helmet-async";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { TooltipProvider } from "@/components/ui";
+import { LightboxProvider } from "@/components/ui/lightbox";
 import { useTimezoneSync } from "@/hooks/useTimezoneSync";
 import { persister, shouldPersistQueryFn } from "@/lib/query-persister";
 import { installChunkErrorRecovery } from "@/lib/chunk-error-recovery";
@@ -121,9 +122,11 @@ function App() {
             delayDuration={0}) can still nest their own; Radix
             allows nesting and inner overrides outer. */}
         <TooltipProvider delayDuration={300}>
-          <TimezoneSync>
-            <RouterProvider router={router} />
-          </TimezoneSync>
+          <LightboxProvider>
+            <TimezoneSync>
+              <RouterProvider router={router} />
+            </TimezoneSync>
+          </LightboxProvider>
         </TooltipProvider>
       </ThemeProvider>
     </AuthProvider>
