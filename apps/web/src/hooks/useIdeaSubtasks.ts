@@ -9,6 +9,7 @@ import type {
   UpdateIdeaSubtaskInput,
 } from "@open-sunsama/types";
 import { getApi } from "@/lib/api";
+import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { ideaSubtaskKeys } from "@/lib/query-keys";
 
 export { ideaSubtaskKeys };
@@ -80,6 +81,7 @@ export function useCreateIdeaSubtask() {
 
 export function useUpdateIdeaSubtask() {
   const queryClient = useQueryClient();
+  const { record } = useUndoRedo();
   return useMutation({
     mutationFn: async ({
       ideaId,
@@ -97,12 +99,13 @@ export function useUpdateIdeaSubtask() {
       const key = ideaSubtaskKeys.list(ideaId);
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData<IdeaSubtask[]>(key);
+      const prevCompleted = previous?.find((s) => s.id === subtaskId)?.completed;
       queryClient.setQueryData<IdeaSubtask[]>(key, (old) =>
         (old ?? []).map((s) =>
           s.id === subtaskId ? { ...s, ...input } : s
         )
       );
-      return { previous };
+      return { previous, prevCompleted };
     },
     onError: (_e, { ideaId }, context) => {
       if (context?.previous) {
@@ -110,6 +113,41 @@ export function useUpdateIdeaSubtask() {
           ideaSubtaskKeys.list(ideaId),
           context.previous
         );
+      }
+    },
+    onSuccess: (_updated, { ideaId, subtaskId, input }, context) => {
+      // Make completion toggles undoable (title edits aren't recorded here).
+      if (
+        input.completed === undefined ||
+        context?.prevCompleted === undefined ||
+        context.prevCompleted === input.completed
+      ) {
+        return;
+      }
+      const prevCompleted = context.prevCompleted;
+      const nextCompleted = input.completed;
+      try {
+        record({
+          label: nextCompleted ? "Complete subtask" : "Uncomplete subtask",
+          undo: async () => {
+            await getApi().ideas.subtasks.update(ideaId, subtaskId, {
+              completed: prevCompleted,
+            });
+            queryClient.invalidateQueries({
+              queryKey: ideaSubtaskKeys.list(ideaId),
+            });
+          },
+          redo: async () => {
+            await getApi().ideas.subtasks.update(ideaId, subtaskId, {
+              completed: nextCompleted,
+            });
+            queryClient.invalidateQueries({
+              queryKey: ideaSubtaskKeys.list(ideaId),
+            });
+          },
+        });
+      } catch {
+        // history bookkeeping must never break the update
       }
     },
   });

@@ -6,6 +6,7 @@ import type {
 } from "@open-sunsama/types";
 import { getApi } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
+import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { subtaskKeys } from "@/lib/query-keys";
 
 /**
@@ -89,6 +90,7 @@ export function useCreateSubtask() {
  */
 export function useUpdateSubtask() {
   const queryClient = useQueryClient();
+  const { record } = useUndoRedo();
 
   return useMutation({
     mutationFn: async ({
@@ -108,6 +110,9 @@ export function useUpdateSubtask() {
       const previous = queryClient.getQueryData<Subtask[]>(
         subtaskKeys.list(taskId)
       );
+      const prevCompleted = previous?.find(
+        (st) => st.id === subtaskId
+      )?.completed;
 
       queryClient.setQueryData<Subtask[]>(
         subtaskKeys.list(taskId),
@@ -119,7 +124,7 @@ export function useUpdateSubtask() {
           ) ?? []
       );
 
-      return { previous };
+      return { previous, prevCompleted };
     },
     onError: (error, { taskId }, context) => {
       if (context?.previous !== undefined) {
@@ -131,7 +136,7 @@ export function useUpdateSubtask() {
         description: error instanceof Error ? error.message : "Unknown error",
       });
     },
-    onSuccess: (updatedSubtask, { taskId }) => {
+    onSuccess: (updatedSubtask, { taskId, subtaskId, data }, context) => {
       queryClient.setQueryData<Subtask[]>(
         subtaskKeys.list(taskId),
         (old) =>
@@ -139,6 +144,39 @@ export function useUpdateSubtask() {
             st.id === updatedSubtask.id ? updatedSubtask : st
           ) ?? []
       );
+
+      // Make completion toggles undoable (title edits aren't recorded here).
+      if (
+        data.completed !== undefined &&
+        context?.prevCompleted !== undefined &&
+        context.prevCompleted !== data.completed
+      ) {
+        const prevCompleted = context.prevCompleted;
+        const nextCompleted = data.completed;
+        try {
+          record({
+            label: nextCompleted ? "Complete subtask" : "Uncomplete subtask",
+            undo: async () => {
+              await getApi().subtasks.update(taskId, subtaskId, {
+                completed: prevCompleted,
+              });
+              queryClient.invalidateQueries({
+                queryKey: subtaskKeys.list(taskId),
+              });
+            },
+            redo: async () => {
+              await getApi().subtasks.update(taskId, subtaskId, {
+                completed: nextCompleted,
+              });
+              queryClient.invalidateQueries({
+                queryKey: subtaskKeys.list(taskId),
+              });
+            },
+          });
+        } catch {
+          // history bookkeeping must never break the update
+        }
+      }
     },
   });
 }
