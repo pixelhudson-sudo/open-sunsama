@@ -353,7 +353,8 @@ export function RichTextEditor({
   const extensions = React.useMemo((): AnyExtension[] => {
     const baseExtensions: AnyExtension[] = [
       StarterKit.configure({
-        heading: false,
+        // Enable headings so the `#`, `##`, `###` markdown shortcuts work.
+        heading: { levels: [1, 2, 3] },
       }),
       Placeholder.configure({
         placeholder,
@@ -398,6 +399,8 @@ export function RichTextEditor({
           "text-[13px] leading-relaxed",
           "prose-p:my-0.5 prose-ul:my-0.5 prose-ol:my-0.5 prose-li:my-0",
           "[&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5",
+          // Compact, distinct headings (the base font is 13px)
+          "prose-headings:font-semibold prose-headings:my-1 prose-h1:text-base prose-h2:text-sm prose-h3:text-[13px]",
           // Image styles
           "[&_.tiptap-image]:max-w-full [&_.tiptap-image]:h-auto [&_.tiptap-image]:rounded-md",
           // Video styles

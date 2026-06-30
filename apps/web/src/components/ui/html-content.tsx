@@ -16,6 +16,7 @@ export function HtmlContent({ html, className }: HtmlContentProps) {
       ALLOWED_TAGS: [
         "p", "br", "strong", "b", "em", "i", "u", "s", "a",
         "ul", "ol", "li", "blockquote", "pre", "code", "span", "div", "img",
+        "h1", "h2", "h3", "h4", "h5", "h6", "hr",
       ],
       ALLOWED_ATTR: ["href", "target", "rel", "class", "src", "alt", "title"],
       ADD_ATTR: ["target"],
@@ -47,6 +48,7 @@ export function HtmlContent({ html, className }: HtmlContentProps) {
         "text-[13px] leading-relaxed",
         "prose-p:my-0.5 prose-ul:my-0.5 prose-ol:my-0.5 prose-li:my-0",
         "[&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5",
+        "prose-headings:font-semibold prose-headings:my-1 prose-h1:text-base prose-h2:text-sm prose-h3:text-[13px]",
         "prose-a:underline prose-a:underline-offset-2",
         className
       )}
