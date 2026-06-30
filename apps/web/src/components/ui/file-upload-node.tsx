@@ -16,7 +16,10 @@ export function ImageNodeView({ node, deleteNode, selected }: NodeViewProps) {
   const [hasError, setHasError] = React.useState(false);
 
   return (
-    <NodeViewWrapper className="tiptap-image-wrapper relative group">
+    <NodeViewWrapper
+      className="tiptap-image-wrapper relative group"
+      data-drag-handle
+    >
       <div
         className={cn(
           "relative inline-block max-w-full rounded-lg overflow-hidden transition-all",
@@ -37,6 +40,9 @@ export function ImageNodeView({ node, deleteNode, selected }: NodeViewProps) {
             src={resolveUploadUrl(src) ?? src}
             alt={alt || ""}
             title={title || ""}
+            // Disable the browser's native image drag so ProseMirror's node
+            // drag (move) takes over instead of dropping a copy.
+            draggable={false}
             className="max-w-full h-auto rounded-lg"
             onLoad={() => setIsLoading(false)}
             onError={() => {

@@ -116,6 +116,10 @@ const FileAttachmentNode = Node.create({
  * Custom Image Extension with React NodeView
  */
 const CustomImage = Image.extend({
+  // Make the node draggable so ProseMirror MOVES it within the doc. Without
+  // this, dragging the inner <img> falls back to the browser's native image
+  // drag, which drops a *copy* instead of moving the node.
+  draggable: true,
   addNodeView() {
     return ReactNodeViewRenderer(ImageNodeView);
   },
