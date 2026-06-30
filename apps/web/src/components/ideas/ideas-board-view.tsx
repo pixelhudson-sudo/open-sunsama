@@ -10,7 +10,12 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  sortableKeyboardCoordinates,
+  arrayMove,
+} from "@dnd-kit/sortable";
 import { Plus, Loader2 } from "lucide-react";
 import type { Idea, IdeaColumn } from "@open-sunsama/types";
 import { cn } from "@/lib/utils";
@@ -19,6 +24,7 @@ import {
   useIdeaColumns,
   useIdeas,
   useReorderIdeas,
+  useReorderIdeaColumns,
   useCreateIdeaColumn,
 } from "@/hooks/useIdeas";
 import { IdeaColumnView } from "./idea-column";
@@ -36,9 +42,13 @@ export function IdeasBoardView({ boardId }: IdeasBoardViewProps) {
   const { data: columns, isLoading: columnsLoading } = useIdeaColumns(boardId);
   const { data: ideas, isLoading: ideasLoading } = useIdeas(boardId);
   const reorderIdeas = useReorderIdeas(boardId);
+  const reorderColumns = useReorderIdeaColumns(boardId);
   const createColumn = useCreateIdeaColumn();
 
   const [activeIdea, setActiveIdea] = React.useState<Idea | null>(null);
+  const [activeColumn, setActiveColumn] = React.useState<IdeaColumn | null>(
+    null
+  );
   const [addingColumn, setAddingColumn] = React.useState(false);
   const [columnDraft, setColumnDraft] = React.useState("");
 
@@ -67,18 +77,44 @@ export function IdeasBoardView({ boardId }: IdeasBoardViewProps) {
     () => [...(columns ?? [])].sort((a, b) => a.position - b.position),
     [columns]
   );
+  const columnIds = React.useMemo(
+    () => sortedColumns.map((c) => c.id),
+    [sortedColumns]
+  );
 
   const handleDragStart = (event: DragStartEvent) => {
     const data = event.active.data.current;
     if (data?.type === "idea") setActiveIdea(data.idea as Idea);
+    else if (data?.type === "column") setActiveColumn(data.column as IdeaColumn);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveIdea(null);
+    setActiveColumn(null);
     const { active, over } = event;
     if (!over) return;
 
     const activeData = active.data.current;
+
+    // ── Column reorder ──
+    if (activeData?.type === "column") {
+      const overData = over.data.current;
+      const targetColumnId =
+        overData?.type === "column"
+          ? (over.id as string)
+          : (overData?.columnId as string | undefined);
+      if (!targetColumnId || targetColumnId === active.id) return;
+      const from = columnIds.indexOf(active.id as string);
+      const to = columnIds.indexOf(targetColumnId);
+      if (from === -1 || to === -1 || from === to) return;
+      reorderColumns.mutate({
+        boardId,
+        columnIds: arrayMove(columnIds, from, to),
+      });
+      return;
+    }
+
+    // ── Idea reorder / move ──
     if (activeData?.type !== "idea") return;
     const dragged = activeData.idea as Idea;
 
@@ -139,19 +175,27 @@ export function IdeasBoardView({ boardId }: IdeasBoardViewProps) {
       collisionDetection={closestCorners}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      onDragCancel={() => setActiveIdea(null)}
+      onDragCancel={() => {
+        setActiveIdea(null);
+        setActiveColumn(null);
+      }}
     >
       <div className="flex flex-1 items-start gap-3.5 overflow-x-auto p-4">
-        {sortedColumns.map((column: IdeaColumn) => (
-          <IdeaColumnView
-            key={column.id}
-            boardId={boardId}
-            column={column}
-            ideas={ideasByColumn.get(column.id) ?? []}
-            allColumns={sortedColumns}
-            canDelete={sortedColumns.length > 1}
-          />
-        ))}
+        <SortableContext
+          items={columnIds}
+          strategy={horizontalListSortingStrategy}
+        >
+          {sortedColumns.map((column: IdeaColumn) => (
+            <IdeaColumnView
+              key={column.id}
+              boardId={boardId}
+              column={column}
+              ideas={ideasByColumn.get(column.id) ?? []}
+              allColumns={sortedColumns}
+              canDelete={sortedColumns.length > 1}
+            />
+          ))}
+        </SortableContext>
 
         {/* Add column */}
         {addingColumn ? (
@@ -196,6 +240,17 @@ export function IdeasBoardView({ boardId }: IdeasBoardViewProps) {
               columns={sortedColumns}
               overlay
             />
+          </div>
+        ) : activeColumn ? (
+          <div className="w-[272px] rotate-[1deg] rounded-xl border border-primary/30 bg-muted/90 p-2.5 shadow-xl ring-2 ring-primary/20">
+            <div className="flex items-center gap-2 px-1">
+              <span className="text-[13px] font-semibold">
+                {activeColumn.name}
+              </span>
+              <span className="grid h-[18px] min-w-[20px] place-items-center rounded-full border border-border/60 bg-background px-1.5 text-[11px] font-medium tabular-nums text-muted-foreground">
+                {ideasByColumn.get(activeColumn.id)?.length ?? 0}
+              </span>
+            </div>
           </div>
         ) : null}
       </DragOverlay>

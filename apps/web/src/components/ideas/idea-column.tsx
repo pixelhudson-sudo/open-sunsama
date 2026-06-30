@@ -1,10 +1,11 @@
 import * as React from "react";
-import { useDroppable } from "@dnd-kit/core";
 import {
   SortableContext,
+  useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Plus, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { CSS } from "@dnd-kit/utilities";
+import { Plus, MoreHorizontal, Pencil, Trash2, GripVertical } from "lucide-react";
 import type { Idea, IdeaColumn as IdeaColumnType } from "@open-sunsama/types";
 import { cn } from "@/lib/utils";
 import {
@@ -40,10 +41,27 @@ export function IdeaColumnView({
   const updateColumn = useUpdateIdeaColumn(boardId);
   const deleteColumn = useDeleteIdeaColumn(boardId);
 
-  const { setNodeRef, isOver } = useDroppable({
+  // The column is both draggable (reorder) and a drop target for cards.
+  // useSortable provides both, so we don't register a separate droppable
+  // with the same id.
+  const {
+    setNodeRef,
+    attributes,
+    listeners,
+    transform,
+    transition,
+    isOver,
+    isDragging,
+  } = useSortable({
     id: column.id,
-    data: { type: "column", columnId: column.id },
+    data: { type: "column", columnId: column.id, column },
   });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : undefined,
+  };
 
   const ideaIds = React.useMemo(() => ideas.map((i) => i.id), [ideas]);
 
@@ -57,8 +75,10 @@ export function IdeaColumnView({
 
   return (
     <section
+      ref={setNodeRef}
+      style={style}
       className={cn(
-        "flex w-[272px] shrink-0 flex-col gap-2 rounded-xl border border-border/60 bg-muted/40 p-2.5 transition-colors",
+        "group/col flex w-[272px] shrink-0 flex-col gap-2 rounded-xl border border-border/60 bg-muted/40 p-2.5 transition-colors",
         isOver && "border-primary/40 bg-primary/5"
       )}
     >
@@ -82,6 +102,14 @@ export function IdeaColumnView({
           />
         ) : (
           <>
+            <button
+              {...attributes}
+              {...listeners}
+              aria-label="Drag to reorder column"
+              className="-ml-0.5 cursor-grab touch-none text-muted-foreground/30 transition-colors hover:text-muted-foreground active:cursor-grabbing"
+            >
+              <GripVertical className="h-4 w-4" />
+            </button>
             <span className="text-[13px] font-semibold">{column.name}</span>
             <span className="grid h-[18px] min-w-[20px] place-items-center rounded-full border border-border/60 bg-background px-1.5 text-[11px] font-medium tabular-nums text-muted-foreground">
               {ideas.length}
@@ -123,10 +151,7 @@ export function IdeaColumnView({
       </div>
 
       {/* Cards */}
-      <div
-        ref={setNodeRef}
-        className="flex min-h-[8px] flex-col gap-2 overflow-y-auto scrollbar-thin"
-      >
+      <div className="flex min-h-[8px] flex-col gap-2 overflow-y-auto scrollbar-thin">
         <SortableContext items={ideaIds} strategy={verticalListSortingStrategy}>
           {ideas.map((idea) => (
             <IdeaCard
