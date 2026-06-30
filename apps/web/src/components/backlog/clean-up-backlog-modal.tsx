@@ -11,7 +11,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  ScrollArea,
   Skeleton,
 } from "@/components/ui";
 
@@ -255,9 +254,11 @@ function CleanUpBacklogBody({ onClose }: { onClose: () => void }) {
         )}
       </div>
 
-      {/* Body */}
-      <ScrollArea className="min-h-0 flex-1">
-        <div className="px-3 py-1">
+      {/* Body — native overflow scroll. Radix ScrollArea's nested h-full
+          viewport doesn't resolve its height through this flex/max-h dialog
+          chain, so the list wouldn't scroll; a plain overflow-y-auto flex
+          child does. */}
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-1">
           {isLoading ? (
             <div className="space-y-2 p-2">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -375,8 +376,7 @@ function CleanUpBacklogBody({ onClose }: { onClose: () => void }) {
               );
             })
           )}
-        </div>
-      </ScrollArea>
+      </div>
 
       {/* Footer */}
       <DialogFooter className="flex-row items-center gap-2 border-t px-5 py-3 sm:justify-end">
