@@ -428,6 +428,68 @@ tasksRouter.patch(
   }
 );
 
+/**
+ * DELETE /tasks/batch?ids=a,b,c - Delete multiple tasks at once.
+ * Registered before "/:id" so Hono matches the static "/batch" path first.
+ */
+tasksRouter.delete(
+  "/batch",
+  requireScopes("tasks:write"),
+  zValidator(
+    "query",
+    z.object({
+      ids: z
+        .string()
+        .min(1)
+        .transform((s) =>
+          s
+            .split(",")
+            .map((x) => x.trim())
+            .filter(Boolean)
+        )
+        .pipe(z.array(uuidSchema).min(1).max(500)),
+    })
+  ),
+  async (c) => {
+    const userId = c.get("userId");
+    const { ids } = c.req.valid("query");
+    const db = getDb();
+
+    // Only delete tasks that actually belong to this user.
+    const existing = await db
+      .select({ id: tasks.id, scheduledDate: tasks.scheduledDate })
+      .from(tasks)
+      .where(and(inArray(tasks.id, ids), eq(tasks.userId, userId)));
+
+    if (existing.length > 0) {
+      await db.delete(tasks).where(
+        and(
+          inArray(
+            tasks.id,
+            existing.map((t) => t.id)
+          ),
+          eq(tasks.userId, userId)
+        )
+      );
+
+      // Publish a realtime event per task (fire and forget) so other
+      // devices/columns stay in sync, mirroring the single-delete route.
+      for (const t of existing) {
+        publishEvent(userId, "task:deleted", {
+          taskId: t.id,
+          scheduledDate: t.scheduledDate,
+        });
+      }
+    }
+
+    return c.json({
+      success: true,
+      data: { deleted: existing.length },
+      message: `Deleted ${existing.length} task${existing.length === 1 ? "" : "s"}`,
+    });
+  }
+);
+
 /** DELETE /tasks/:id - Delete a task */
 tasksRouter.delete(
   "/:id",

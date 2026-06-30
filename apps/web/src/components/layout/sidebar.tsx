@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Plus, Inbox, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Inbox, ChevronLeft, ChevronRight, Eraser } from "lucide-react";
 import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import {
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { Button, ScrollArea, Skeleton } from "@/components/ui";
 import { AddTaskModal } from "@/components/kanban/add-task-modal.lazy";
 import { TaskModal } from "@/components/kanban/task-modal.lazy";
+import { CleanUpBacklogModal } from "@/components/backlog/clean-up-backlog-modal";
 
 const SIDEBAR_COLLAPSED_KEY = "open-sunsama-sidebar-collapsed";
 
@@ -29,6 +30,7 @@ interface SidebarProps {
  */
 export function Sidebar({ className }: SidebarProps) {
   const [isAddModalOpen, setIsAddModalOpen] = React.useState(false);
+  const [isCleanupOpen, setIsCleanupOpen] = React.useState(false);
   const [selectedTask, setSelectedTask] = React.useState<Task | null>(null);
   const [isCollapsed, setIsCollapsed] = React.useState(() => {
     if (typeof window === "undefined") return false;
@@ -139,6 +141,17 @@ export function Sidebar({ className }: SidebarProps) {
           )}
         </div>
         <div className="flex items-center gap-0.5">
+          {backlogTasks.length > 0 && (
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="h-6 w-6 text-primary hover:text-primary"
+              onClick={() => setIsCleanupOpen(true)}
+              title="Clean up backlog"
+            >
+              <Eraser className="h-3.5 w-3.5" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon-xs"
@@ -240,6 +253,12 @@ export function Sidebar({ className }: SidebarProps) {
         open={isAddModalOpen}
         onOpenChange={setIsAddModalOpen}
         scheduledDate={null}
+      />
+
+      {/* Clean up Backlog Modal */}
+      <CleanUpBacklogModal
+        open={isCleanupOpen}
+        onOpenChange={setIsCleanupOpen}
       />
 
       {/* Task Detail Modal */}
