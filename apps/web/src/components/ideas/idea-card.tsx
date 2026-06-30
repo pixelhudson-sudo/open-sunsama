@@ -80,6 +80,11 @@ export function IdeaCard({ idea, boardId, columns, overlay }: IdeaCardProps) {
     });
   };
 
+  // Click the card to edit — but not at the tail of a drag.
+  const handleClick = () => {
+    if (!sortable.isDragging) setEditOpen(true);
+  };
+
   const otherColumns = columns.filter((c) => c.id !== idea.columnId);
 
   return (
@@ -89,6 +94,7 @@ export function IdeaCard({ idea, boardId, columns, overlay }: IdeaCardProps) {
         style={style}
         {...(overlay ? {} : sortable.attributes)}
         {...(overlay ? {} : sortable.listeners)}
+        onClick={overlay ? undefined : handleClick}
         className={cn(
           "group relative flex flex-col gap-1.5 rounded-lg px-3 py-2.5 transition-all duration-200",
           "bg-card hover:bg-card/80",
@@ -152,6 +158,7 @@ export function IdeaCard({ idea, boardId, columns, overlay }: IdeaCardProps) {
               menuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"
             )}
             onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
             <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
               <DropdownMenuTrigger asChild>
