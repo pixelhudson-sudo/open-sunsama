@@ -196,6 +196,7 @@ export function IdeasBoardView({ boardId }: IdeasBoardViewProps) {
               ideas={ideasByColumn.get(column.id) ?? []}
               allColumns={sortedColumns}
               canDelete={sortedColumns.length > 1}
+              isDragActive={!!activeIdea}
             />
           ))}
         </SortableContext>

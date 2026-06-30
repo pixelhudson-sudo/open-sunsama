@@ -25,6 +25,8 @@ interface IdeaColumnProps {
   ideas: Idea[];
   allColumns: IdeaColumnType[];
   canDelete: boolean;
+  /** True while a card is being dragged anywhere on the board. */
+  isDragActive: boolean;
 }
 
 export function IdeaColumnView({
@@ -33,6 +35,7 @@ export function IdeaColumnView({
   ideas,
   allColumns,
   canDelete,
+  isDragActive,
 }: IdeaColumnProps) {
   const [addOpen, setAddOpen] = React.useState(false);
   const [renaming, setRenaming] = React.useState(false);
@@ -163,11 +166,11 @@ export function IdeaColumnView({
           ))}
         </SortableContext>
 
-        {ideas.length === 0 && (
+        {/* Drop placeholder only appears during a drag — an idle empty column
+            takes up no space (just its "Add idea" button below). */}
+        {ideas.length === 0 && isDragActive && (
           <div className="rounded-lg border border-dashed border-border/60 px-2.5 py-4 text-center text-xs leading-relaxed text-muted-foreground">
-            Drag cards here,
-            <br />
-            or add a new one
+            Drop here
           </div>
         )}
       </div>
