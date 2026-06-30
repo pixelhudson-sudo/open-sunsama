@@ -145,7 +145,7 @@ export function Sidebar({ className }: SidebarProps) {
             <Button
               variant="ghost"
               size="icon-xs"
-              className="h-6 w-6 text-primary hover:text-primary"
+              className="h-6 w-6"
               onClick={() => setIsCleanupOpen(true)}
               title="Clean up backlog"
             >

@@ -117,7 +117,7 @@ export function MobileBacklogSheet({ trigger, onTaskClick }: MobileBacklogSheetP
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-10 w-10 text-primary hover:text-primary"
+                  className="h-10 w-10"
                   onClick={() => {
                     setOpen(false);
                     setIsCleanupOpen(true);

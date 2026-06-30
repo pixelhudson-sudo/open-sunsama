@@ -306,10 +306,16 @@ export function createTasksApi(client: OpenSunsamaClient): TasksApi {
     },
 
     async batchDelete(ids: string[], options?: RequestOptions): Promise<void> {
-      await client.delete<ApiResponseWrapper<void>>("tasks/batch", {
-        ...options,
-        searchParams: { ...options?.searchParams, ids: ids.join(",") },
-      });
+      // Chunk so the `ids` query string stays well under reverse-proxy
+      // request-line limits (e.g. Nginx's default 8KB). ~100 UUIDs ≈ 3.7KB.
+      const CHUNK_SIZE = 100;
+      for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+        const chunk = ids.slice(i, i + CHUNK_SIZE);
+        await client.delete<ApiResponseWrapper<void>>("tasks/batch", {
+          ...options,
+          searchParams: { ...options?.searchParams, ids: chunk.join(",") },
+        });
+      }
     },
 
     async timerActive(options?: RequestOptions): Promise<Task | null> {
