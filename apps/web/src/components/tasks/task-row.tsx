@@ -57,6 +57,7 @@ export function TaskRow({
   return (
     <TaskContextMenu task={task} onEdit={onSelect}>
       <div
+        data-task-id={task.id}
         onMouseEnter={() => setHoveredTask(task)}
         onMouseLeave={() => setHoveredTask(null)}
       >
