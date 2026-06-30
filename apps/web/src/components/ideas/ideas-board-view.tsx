@@ -16,6 +16,7 @@ import {
   sortableKeyboardCoordinates,
   arrayMove,
 } from "@dnd-kit/sortable";
+import { snapCenterToCursor } from "@dnd-kit/modifiers";
 import { Plus, Loader2 } from "lucide-react";
 import type { Idea, IdeaColumn } from "@open-sunsama/types";
 import { cn } from "@/lib/utils";
@@ -231,7 +232,10 @@ export function IdeasBoardView({ boardId }: IdeasBoardViewProps) {
         )}
       </div>
 
-      <DragOverlay>
+      <DragOverlay
+        dropAnimation={null}
+        modifiers={activeIdea ? [snapCenterToCursor] : undefined}
+      >
         {activeIdea ? (
           <div className="w-[252px]">
             <IdeaCard

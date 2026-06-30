@@ -184,10 +184,31 @@ export function IdeaCard({ idea, boardId, columns, overlay }: IdeaCardProps) {
   const style: React.CSSProperties = overlay
     ? {}
     : {
-        transform: CSS.Translate.toString(sortable.transform),
+        transform: CSS.Transform.toString(sortable.transform),
         transition: sortable.transition,
-        opacity: sortable.isDragging ? 0.4 : undefined,
       };
+
+  // Show a crisp drop-indicator line only on the card currently being hovered
+  // during a drag (matches the kanban task card) — not a persistent gap.
+  const showIndicator = sortable.isOver && sortable.active?.id !== idea.id;
+  let showDropAbove = false;
+  let showDropBelow = false;
+  if (showIndicator) {
+    const activeColumn = sortable.active?.data?.current?.columnId as
+      | string
+      | undefined;
+    if (activeColumn !== idea.columnId) {
+      // Cross-column drop inserts before the hovered card.
+      showDropAbove = true;
+    } else {
+      const activeIndex =
+        (sortable.active?.data?.current?.sortable?.index as
+          | number
+          | undefined) ?? -1;
+      showDropAbove = activeIndex > sortable.index;
+      showDropBelow = activeIndex < sortable.index && activeIndex !== -1;
+    }
+  }
 
   const toggleComplete = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -245,9 +266,18 @@ export function IdeaCard({ idea, boardId, columns, overlay }: IdeaCardProps) {
         "cursor-grab active:cursor-grabbing touch-none select-none",
         overlay &&
           "shadow-xl ring-2 ring-primary/20 rotate-[0.5deg] cursor-grabbing",
+        !overlay && sortable.isDragging && "opacity-30 z-50",
         isCompleted && "opacity-50 hover:opacity-60 bg-card/50"
       )}
     >
+      {/* Drop indicator lines (only on the hovered card during a drag) */}
+      {showDropAbove && (
+        <div className="absolute -top-1 left-0 right-0 z-10 h-0.5 rounded-full bg-primary" />
+      )}
+      {showDropBelow && (
+        <div className="absolute -bottom-1 left-0 right-0 z-10 h-0.5 rounded-full bg-primary" />
+      )}
+
       {/* Main row: checkbox + title */}
       <div className="flex items-start gap-2">
         <div
