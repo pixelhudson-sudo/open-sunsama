@@ -323,6 +323,11 @@ export function TasksDndProvider({ children }: TasksDndProviderProps) {
       <DndContext
         sensors={sensors}
         collisionDetection={taskPriorityCollision}
+        // Disable horizontal auto-scroll (threshold x:0) so reordering within a
+        // column never yanks the board sideways — the default ~20% edge zone is
+        // wide enough to cover the leftmost (Today) column. Keep vertical
+        // auto-scroll for dragging to the bottom of a long column.
+        autoScroll={{ threshold: { x: 0, y: 0.2 } }}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
