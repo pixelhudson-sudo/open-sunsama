@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ListTodo, Calendar, MoreHorizontal } from "lucide-react";
+import { ListTodo, Calendar, Lightbulb, MoreHorizontal } from "lucide-react";
 import { useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +21,11 @@ const navItems: NavItem[] = [
     href: "/app/calendar",
     icon: <Calendar className="h-6 w-6" />,
     label: "Calendar",
+  },
+  {
+    href: "/app/ideas",
+    icon: <Lightbulb className="h-6 w-6" />,
+    label: "Ideas",
   },
   {
     href: "/app/more",

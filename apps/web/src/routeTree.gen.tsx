@@ -274,6 +274,12 @@ const appRoutinesRoute = createRoute({
   component: lazyRouteComponent(() => import("./routes/app/routines")),
 });
 
+const appIdeasRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/ideas",
+  component: lazyRouteComponent(() => import("./routes/app/ideas")),
+});
+
 // Build the route tree
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -304,6 +310,7 @@ const routeTree = rootRoute.addChildren([
     appFocusCompleteRoute,
     appMoreRoute,
     appRoutinesRoute,
+    appIdeasRoute,
   ]),
 ]);
 

@@ -7,3 +7,4 @@ export * from './tasks.js';
 export * from './time-blocks.js';
 export * from './api-keys.js';
 export * from './uploads.js';
+export * from './ideas.js';

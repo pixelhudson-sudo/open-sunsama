@@ -32,6 +32,19 @@ export type WebSocketEventType =
   | "timer:stopped"
   // User events
   | "user:updated"
+  // Ideas events
+  | "idea-board:created"
+  | "idea-board:updated"
+  | "idea-board:deleted"
+  | "idea-board:reordered"
+  | "idea-column:created"
+  | "idea-column:updated"
+  | "idea-column:deleted"
+  | "idea-column:reordered"
+  | "idea:created"
+  | "idea:updated"
+  | "idea:deleted"
+  | "idea:reordered"
   // Connection events
   | "connected";
 

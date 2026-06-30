@@ -75,6 +75,22 @@ export { createApiKeysApi, type ApiKeysApi };
 import { createNotificationsApi, type NotificationsApi } from "./notifications.js";
 export { createNotificationsApi, type NotificationsApi };
 
+// Ideas API
+import {
+  createIdeasApi,
+  type IdeasApi,
+  type IdeaBoardsApi,
+  type IdeaColumnsApi,
+  type IdeaBoardWithColumns,
+} from "./ideas.js";
+export {
+  createIdeasApi,
+  type IdeasApi,
+  type IdeaBoardsApi,
+  type IdeaColumnsApi,
+  type IdeaBoardWithColumns,
+};
+
 // Types
 export type {
   FetchFn,
@@ -126,6 +142,21 @@ export type {
   // Notification types
   NotificationPreferences,
   UpdateNotificationPreferencesInput,
+  // Ideas types
+  IdeaBoard,
+  IdeaColumn,
+  Idea,
+  CreateIdeaBoardInput,
+  UpdateIdeaBoardInput,
+  CreateIdeaColumnInput,
+  UpdateIdeaColumnInput,
+  CreateIdeaInput,
+  UpdateIdeaInput,
+  ReorderIdeasInput,
+  ReorderIdeaColumnsInput,
+  ReorderIdeaBoardsInput,
+  PromoteIdeaInput,
+  IdeaFilterInput,
 } from "@open-sunsama/types";
 export { REMINDER_TIMING_OPTIONS } from "@open-sunsama/types";
 
@@ -163,6 +194,8 @@ export function createApi(config: ApiClientConfig) {
     apiKeys: createApiKeysApi(client),
     /** Notifications API methods */
     notifications: createNotificationsApi(client),
+    /** Ideas API methods (boards / columns / idea cards) */
+    ideas: createIdeasApi(client),
     /**
      * Update the authentication token
      */

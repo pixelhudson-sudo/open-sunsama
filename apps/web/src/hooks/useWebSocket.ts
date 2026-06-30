@@ -13,6 +13,8 @@ import {
   timeBlockKeys,
   subtaskKeys,
   calendarKeys,
+  ideaBoardKeys,
+  ideaKeys,
 } from "@/lib/query-keys";
 
 /**
@@ -194,6 +196,34 @@ function handleWebSocketEvent(
       }
       queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
       break;
+
+    case "idea-board:created":
+    case "idea-board:updated":
+    case "idea-board:deleted":
+    case "idea-board:reordered":
+    case "idea-column:created":
+    case "idea-column:updated":
+    case "idea-column:deleted":
+    case "idea-column:reordered":
+    case "idea:created":
+    case "idea:updated":
+    case "idea:deleted":
+    case "idea:reordered": {
+      // Board rail can always change shape (counts, names, order).
+      batcher.schedule(ideaBoardKeys.lists());
+      const payload =
+        event.payload && typeof event.payload === "object"
+          ? (event.payload as { boardId?: string })
+          : undefined;
+      if (payload?.boardId) {
+        batcher.schedule(ideaBoardKeys.columns(payload.boardId));
+        batcher.schedule(ideaKeys.byBoard(payload.boardId));
+      } else {
+        // Board-level events without a boardId (rare) — refetch all ideas.
+        batcher.schedule(ideaKeys.lists());
+      }
+      break;
+    }
 
     case "connected":
       queryClient.invalidateQueries({ queryKey: timerKeys.active() });

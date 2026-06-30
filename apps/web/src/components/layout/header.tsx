@@ -3,6 +3,7 @@ import {
   Calendar,
   LayoutGrid,
   List,
+  Lightbulb,
   Search,
   Settings,
   LogOut,
@@ -92,6 +93,9 @@ export function Header({ className }: HeaderProps) {
             icon={<Calendar className="h-3.5 w-3.5" />}
           >
             Calendar
+          </NavLink>
+          <NavLink href="/app/ideas" icon={<Lightbulb className="h-3.5 w-3.5" />}>
+            Ideas
           </NavLink>
         </nav>
 
