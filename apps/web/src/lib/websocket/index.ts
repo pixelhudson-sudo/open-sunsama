@@ -22,6 +22,18 @@ export type WebSocketEventType =
   | "calendar-event:updated"
   | "calendar-event:deleted"
   | "user:updated"
+  | "idea-board:created"
+  | "idea-board:updated"
+  | "idea-board:deleted"
+  | "idea-board:reordered"
+  | "idea-column:created"
+  | "idea-column:updated"
+  | "idea-column:deleted"
+  | "idea-column:reordered"
+  | "idea:created"
+  | "idea:updated"
+  | "idea:deleted"
+  | "idea:reordered"
   | "connected";
 
 export interface WebSocketEvent<T = unknown> {

@@ -171,5 +171,34 @@ export type {
 export { oauthStates } from "./oauth-states";
 export type { OAuthState, NewOAuthState } from "./oauth-states";
 
+export {
+  ideaBoards,
+  ideaBoardsRelations,
+  ideaColumns,
+  ideaColumnsRelations,
+  ideas,
+  ideasRelations,
+  insertIdeaBoardSchema,
+  selectIdeaBoardSchema,
+  updateIdeaBoardSchema,
+  insertIdeaColumnSchema,
+  selectIdeaColumnSchema,
+  updateIdeaColumnSchema,
+  insertIdeaSchema,
+  selectIdeaSchema,
+  updateIdeaSchema,
+} from "./ideas";
+export type {
+  IdeaBoard,
+  NewIdeaBoard,
+  UpdateIdeaBoard,
+  IdeaColumn,
+  NewIdeaColumn,
+  UpdateIdeaColumn,
+  Idea,
+  NewIdea,
+  UpdateIdea,
+} from "./ideas";
+
 // Re-export relation helpers for query building
 export { relations } from "drizzle-orm";

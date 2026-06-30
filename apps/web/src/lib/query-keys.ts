@@ -54,3 +54,16 @@ export const calendarKeys = {
   events: (from: string, to: string) =>
     [...calendarKeys.all, "events", from, to] as const,
 };
+
+export const ideaBoardKeys = {
+  all: ["ideaBoards"] as const,
+  lists: () => [...ideaBoardKeys.all, "list"] as const,
+  columns: (boardId: string) =>
+    [...ideaBoardKeys.all, "columns", boardId] as const,
+};
+
+export const ideaKeys = {
+  all: ["ideas"] as const,
+  lists: () => [...ideaKeys.all, "list"] as const,
+  byBoard: (boardId: string) => [...ideaKeys.lists(), boardId] as const,
+};

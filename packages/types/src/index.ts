@@ -159,3 +159,21 @@ export type {
   CalendarEventQuery,
   UpdateCalendarRequest,
 } from "./calendar.js";
+
+// Ideas types
+export type {
+  IdeaBoard,
+  IdeaColumn,
+  Idea,
+  CreateIdeaBoardInput,
+  UpdateIdeaBoardInput,
+  CreateIdeaColumnInput,
+  UpdateIdeaColumnInput,
+  CreateIdeaInput,
+  UpdateIdeaInput,
+  ReorderIdeasInput,
+  ReorderIdeaColumnsInput,
+  ReorderIdeaBoardsInput,
+  PromoteIdeaInput,
+  IdeaFilterInput,
+} from "./idea.js";
