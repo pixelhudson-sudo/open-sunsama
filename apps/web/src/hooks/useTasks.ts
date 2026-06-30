@@ -795,6 +795,7 @@ export function useCompleteTask() {
  */
 export function useMoveTask() {
   const queryClient = useQueryClient();
+  const { record } = useUndoRedo();
 
   return useMutation({
     mutationFn: async ({
@@ -853,7 +854,10 @@ export function useMoveTask() {
         queryClient.setQueryData(taskKeys.detail(id), updatedTask);
       }
 
-      return { previousQueries };
+      return {
+        previousQueries,
+        previousScheduledDate: sourceTask?.scheduledDate ?? null,
+      };
     },
     onError: (_error, _variables, context) => {
       // Rollback all queries on error
@@ -866,7 +870,7 @@ export function useMoveTask() {
         description: _error instanceof Error ? _error.message : "Unknown error",
       });
     },
-    onSuccess: (movedTask) => {
+    onSuccess: (movedTask, variables, context) => {
       // Reconcile with the server-authoritative task. Importantly, this
       // populates the source/target lists with the canonical position the
       // server picked when only `targetDate` was provided.
@@ -878,6 +882,27 @@ export function useMoveTask() {
           return old.map((t) => (t.id === movedTask.id ? movedTask : t));
         }
       );
+
+      // Undo a move by sending the task back to its previous day.
+      try {
+        const { id, targetDate } = variables;
+        const prevDate = context?.previousScheduledDate ?? null;
+        if (prevDate !== targetDate) {
+          record({
+            label: "Move task",
+            undo: async () => {
+              await getApi().tasks.update(id, { scheduledDate: prevDate });
+              invalidateTaskCaches(queryClient);
+            },
+            redo: async () => {
+              await getApi().tasks.update(id, { scheduledDate: targetDate });
+              invalidateTaskCaches(queryClient);
+            },
+          });
+        }
+      } catch {
+        // history bookkeeping must never break a move
+      }
     },
   });
 }
@@ -923,18 +948,40 @@ export function useReorderTasks() {
         queryKey: ["tasks", "search", "infinite"],
       });
 
-      // Capture the destination bucket's pending order *before* applying the
-      // reorder so undo can restore it exactly.
-      const prevDestOrder = (() => {
+      // Capture the pending order of every bucket this reorder touches — the
+      // destination plus any source bucket a task is moving *out of* — so undo
+      // can restore them all. (A cross-day move otherwise wouldn't return the
+      // task to its original day.)
+      const orderForBucket = (bucketKey: string): string[] => {
         const entry = previousQueries.find(([key]) => {
           const f = key[2] as ListFilter | undefined;
-          return isBacklog ? f?.backlog === true : f?.scheduledDate === date;
+          return bucketKey === "backlog"
+            ? f?.backlog === true
+            : f?.scheduledDate === bucketKey;
         });
         return (entry?.[1] ?? [])
           .filter((t) => !t.completedAt)
           .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
           .map((t) => t.id);
-      })();
+      };
+      const prevBucketById = new Map<string, string>();
+      for (const [, list] of previousQueries) {
+        if (!list) continue;
+        for (const t of list) {
+          if (!prevBucketById.has(t.id)) {
+            prevBucketById.set(t.id, t.scheduledDate ?? "backlog");
+          }
+        }
+      }
+      const affectedBuckets = new Set<string>([date]);
+      for (const tid of taskIds) {
+        const src = prevBucketById.get(tid);
+        if (src && src !== date) affectedBuckets.add(src);
+      }
+      const prevBuckets: Record<string, string[]> = {};
+      for (const bucketKey of affectedBuckets) {
+        prevBuckets[bucketKey] = orderForBucket(bucketKey);
+      }
 
       // Build a lookup of every task currently visible in any list cache so
       // we can resolve tasks that the destination cache may not yet know
@@ -1051,7 +1098,7 @@ export function useReorderTasks() {
         previousInfiniteQueries,
         targetScheduledDate,
         taskIds,
-        prevDestOrder,
+        prevBuckets,
       };
     },
     onError: (error, _variables, context) => {
@@ -1093,17 +1140,24 @@ export function useReorderTasks() {
         queryClient.setQueryData(taskKeys.detail(t.id), t);
       }
 
-      // Undo a reorder by restoring the destination bucket's previous order.
-      // (Same-column reorders restore exactly; a cross-column move restores
-      // the destination order it had before the task arrived.)
+      // Undo by restoring the previous order of *every* bucket the reorder
+      // touched. For a within-day reorder that's just this day; for a
+      // cross-day move it's the destination day (minus the task) and the
+      // source day (with the task back in its old spot) — so the task
+      // actually returns to where it came from.
       try {
         const { date, taskIds } = variables;
-        const prev = context?.prevDestOrder ?? [];
-        if (prev.length > 0) {
+        const prevBuckets = context?.prevBuckets ?? {};
+        const buckets = Object.entries(prevBuckets).filter(
+          ([, order]) => order.length > 0
+        );
+        if (buckets.length > 0) {
           record({
-            label: "Reorder tasks",
+            label: buckets.length > 1 ? "Move task" : "Reorder tasks",
             undo: async () => {
-              await getApi().tasks.reorder({ date, taskIds: prev });
+              for (const [bucket, order] of buckets) {
+                await getApi().tasks.reorder({ date: bucket, taskIds: order });
+              }
               invalidateTaskCaches(queryClient);
             },
             redo: async () => {
