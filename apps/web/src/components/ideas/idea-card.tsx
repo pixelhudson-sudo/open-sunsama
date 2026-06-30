@@ -23,6 +23,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
 } from "@/components/ui";
+import { HtmlContent } from "@/components/ui/html-content";
 import {
   useDeleteIdea,
   usePromoteIdea,
@@ -59,6 +60,9 @@ export function IdeaCard({ idea, boardId, columns, overlay }: IdeaCardProps) {
 
   const isCompleted = !!idea.completedAt;
   const inPlanner = !!idea.promotedTaskId;
+  // Notes are rich-text HTML; only show a preview when there's real text.
+  const hasNotes =
+    !!idea.notes && idea.notes.replace(/<[^>]*>/g, "").trim().length > 0;
 
   const style: React.CSSProperties = overlay
     ? {}
@@ -122,11 +126,12 @@ export function IdeaCard({ idea, boardId, columns, overlay }: IdeaCardProps) {
           </p>
         </div>
 
-        {/* Optional muted note line */}
-        {idea.notes && !isCompleted && (
-          <p className="pl-6 text-xs leading-snug text-muted-foreground line-clamp-2">
-            {idea.notes}
-          </p>
+        {/* Optional notes preview (rich text) */}
+        {hasNotes && !isCompleted && (
+          <HtmlContent
+            html={idea.notes!}
+            className="pl-6 text-xs leading-snug text-muted-foreground line-clamp-2 [&_p]:m-0"
+          />
         )}
 
         {/* "In backlog" marker once promoted */}

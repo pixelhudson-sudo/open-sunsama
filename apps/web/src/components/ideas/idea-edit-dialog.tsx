@@ -8,8 +8,9 @@ import {
   DialogFooter,
   Button,
   Input,
-  Textarea,
+  Label,
 } from "@/components/ui";
+import { RichTextEditor } from "@/components/ui/rich-text-editor.lazy";
 import { useUpdateIdea } from "@/hooks/useIdeas";
 
 interface IdeaEditDialogProps {
@@ -62,13 +63,17 @@ export function IdeaEditDialog({
               placeholder="Idea title…"
               maxLength={500}
             />
-            <Textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Add a note (optional)…"
-              rows={3}
-              className="resize-none"
-            />
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-muted-foreground">
+                Notes
+              </Label>
+              <RichTextEditor
+                value={notes}
+                onChange={setNotes}
+                placeholder="Add details..."
+                minHeight="80px"
+              />
+            </div>
           </div>
           <DialogFooter className="mt-5">
             <Button

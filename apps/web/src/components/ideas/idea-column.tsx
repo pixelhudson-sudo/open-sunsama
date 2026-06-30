@@ -8,20 +8,15 @@ import { Plus, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import type { Idea, IdeaColumn as IdeaColumnType } from "@open-sunsama/types";
 import { cn } from "@/lib/utils";
 import {
-  Button,
   Input,
-  Textarea,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui";
-import {
-  useCreateIdea,
-  useDeleteIdeaColumn,
-  useUpdateIdeaColumn,
-} from "@/hooks/useIdeas";
+import { useDeleteIdeaColumn, useUpdateIdeaColumn } from "@/hooks/useIdeas";
 import { IdeaCard } from "./idea-card";
+import { AddIdeaModal } from "./add-idea-modal";
 
 interface IdeaColumnProps {
   boardId: string;
@@ -38,12 +33,10 @@ export function IdeaColumnView({
   allColumns,
   canDelete,
 }: IdeaColumnProps) {
-  const [composing, setComposing] = React.useState(false);
-  const [draft, setDraft] = React.useState("");
+  const [addOpen, setAddOpen] = React.useState(false);
   const [renaming, setRenaming] = React.useState(false);
   const [nameDraft, setNameDraft] = React.useState(column.name);
 
-  const createIdea = useCreateIdea(boardId);
   const updateColumn = useUpdateIdeaColumn(boardId);
   const deleteColumn = useDeleteIdeaColumn(boardId);
 
@@ -53,17 +46,6 @@ export function IdeaColumnView({
   });
 
   const ideaIds = React.useMemo(() => ideas.map((i) => i.id), [ideas]);
-
-  const submitDraft = () => {
-    const trimmed = draft.trim();
-    if (!trimmed) return;
-    createIdea.mutate({
-      boardId,
-      columnId: column.id,
-      title: trimmed,
-    });
-    setDraft(""); // keep composer open for rapid entry
-  };
 
   const submitRename = () => {
     const trimmed = nameDraft.trim();
@@ -156,7 +138,7 @@ export function IdeaColumnView({
           ))}
         </SortableContext>
 
-        {ideas.length === 0 && !composing && (
+        {ideas.length === 0 && (
           <div className="rounded-lg border border-dashed border-border/60 px-2.5 py-4 text-center text-xs leading-relaxed text-muted-foreground">
             Drag cards here,
             <br />
@@ -165,55 +147,23 @@ export function IdeaColumnView({
         )}
       </div>
 
-      {/* Inline add composer */}
-      {composing ? (
-        <div className="rounded-lg border border-ring bg-card p-2 shadow-sm ring-2 ring-ring/20">
-          <Textarea
-            autoFocus
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                submitDraft();
-              }
-              if (e.key === "Escape") {
-                setDraft("");
-                setComposing(false);
-              }
-            }}
-            placeholder="Idea title…"
-            rows={2}
-            className="min-h-[44px] resize-none border-none p-0 text-sm shadow-none focus-visible:ring-0"
-          />
-          <div className="mt-2 flex items-center gap-2">
-            <Button size="sm" className="h-7" onClick={submitDraft}>
-              Add
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7"
-              onClick={() => {
-                setDraft("");
-                setComposing(false);
-              }}
-            >
-              Cancel
-            </Button>
-            <span className="ml-auto text-[11px] text-muted-foreground">
-              ⏎ add · ⇧⏎ newline
-            </span>
-          </div>
-        </div>
-      ) : (
-        <button
-          onClick={() => setComposing(true)}
-          className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
-        >
-          <Plus className="h-4 w-4" />
-          Add idea
-        </button>
+      {/* Add idea — opens the modal (same chrome as Add Task) */}
+      <button
+        onClick={() => setAddOpen(true)}
+        className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+      >
+        <Plus className="h-4 w-4" />
+        Add idea
+      </button>
+
+      {addOpen && (
+        <AddIdeaModal
+          open={addOpen}
+          onOpenChange={setAddOpen}
+          boardId={boardId}
+          columnId={column.id}
+          columnName={column.name}
+        />
       )}
     </section>
   );
