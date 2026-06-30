@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
+  MouseSensor,
   TouchSensor,
   KeyboardSensor,
   useSensor,
@@ -57,12 +57,14 @@ export function TasksDndProvider({ children }: TasksDndProviderProps) {
   const reorderTasks = useReorderTasks();
 
   // Drag and drop sensors with keyboard support for accessibility
-  // Using delay + distance to ensure clicks register before drag starts
+  // Mouse: distance-based so a drag starts the instant the pointer moves a
+  // few px — no hold delay — while a plain click (no movement) still opens
+  // the task. Touch: a short press-and-hold so vertical swipes still scroll
+  // the board on mobile instead of grabbing a card.
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       activationConstraint: {
-        delay: 100,
-        tolerance: 5,
+        distance: 4,
       },
     }),
     useSensor(TouchSensor, {
