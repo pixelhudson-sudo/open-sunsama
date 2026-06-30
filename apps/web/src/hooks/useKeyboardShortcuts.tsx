@@ -309,6 +309,25 @@ export function HoveredTaskProvider({
         break;
       }
     }
+    // The list view keeps its tasks in the infinite-search cache rather than
+    // taskKeys.lists(), so search there too — otherwise the hovered card goes
+    // stale (or null) after a shortcut completes/uncompletes it.
+    if (!next) {
+      const infinite = queryClient.getQueriesData({
+        queryKey: ["tasks", "search", "infinite"],
+      });
+      outer: for (const [, data] of infinite) {
+        if (!data || typeof data !== "object" || !("pages" in data)) continue;
+        const pages = (data as { pages: Array<{ data: Task[] }> }).pages;
+        for (const page of pages) {
+          const found = page.data?.find((t) => t.id === id);
+          if (found) {
+            next = found;
+            break outer;
+          }
+        }
+      }
+    }
     setHoveredTask((prev) => (prev?.id === next?.id && prev === next ? prev : next));
     setHoveredSubtaskId(null);
   }, [queryClient]);
@@ -319,7 +338,10 @@ export function HoveredTaskProvider({
     let raf = 0;
     const unsub = queryClient.getQueryCache().subscribe((event) => {
       const key = event?.query?.queryKey as unknown[] | undefined;
-      if (!key || key[0] !== "tasks" || key[1] !== "list") return;
+      // Board view uses ["tasks","list",...]; list view uses
+      // ["tasks","search","infinite",...]. Recompute on either.
+      if (!key || key[0] !== "tasks" || (key[1] !== "list" && key[1] !== "search"))
+        return;
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(recomputeHoveredFromCursor);
     });

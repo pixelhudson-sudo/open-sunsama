@@ -22,6 +22,7 @@ import type {
 import { getApi } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { ideaBoardKeys, ideaKeys, taskKeys } from "@/lib/query-keys";
 
 export { ideaBoardKeys, ideaKeys };
@@ -391,6 +392,7 @@ export function useCreateIdea(boardId: string | undefined) {
 
 export function useUpdateIdea(boardId: string | undefined) {
   const queryClient = useQueryClient();
+  const { record } = useUndoRedo();
   return useMutation({
     mutationFn: async ({
       id,
@@ -407,6 +409,8 @@ export function useUpdateIdea(boardId: string | undefined) {
       const key = ideaKeys.byBoard(boardId);
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData<Idea[]>(key);
+      const prevCompletedAt =
+        previous?.find((i) => i.id === id)?.completedAt ?? null;
       queryClient.setQueryData<Idea[]>(key, (old) =>
         (old ?? []).map((i) =>
           i.id === id
@@ -421,7 +425,7 @@ export function useUpdateIdea(boardId: string | undefined) {
             : i
         )
       );
-      return { previous };
+      return { previous, prevCompletedAt };
     },
     onError: (error, _vars, context) => {
       if (boardId && context?.previous) {
@@ -432,6 +436,35 @@ export function useUpdateIdea(boardId: string | undefined) {
         title: "Failed to update idea",
         description: error instanceof Error ? error.message : "Unknown error",
       });
+    },
+    onSuccess: (_data, { id, input }, context) => {
+      // Make completion toggles undoable (other field edits aren't recorded).
+      if (input.completedAt === undefined) return;
+      const prevCompletedAt = context?.prevCompletedAt ?? null;
+      const nextCompletedAt = input.completedAt;
+      try {
+        record({
+          label: nextCompletedAt ? "Complete idea" : "Uncomplete idea",
+          undo: async () => {
+            await getApi().ideas.update(id, { completedAt: prevCompletedAt });
+            if (boardId) {
+              queryClient.invalidateQueries({
+                queryKey: ideaKeys.byBoard(boardId),
+              });
+            }
+          },
+          redo: async () => {
+            await getApi().ideas.update(id, { completedAt: nextCompletedAt });
+            if (boardId) {
+              queryClient.invalidateQueries({
+                queryKey: ideaKeys.byBoard(boardId),
+              });
+            }
+          },
+        });
+      } catch {
+        // history bookkeeping must never break the update
+      }
     },
     onSettled: () => {
       if (boardId) {

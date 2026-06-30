@@ -1,5 +1,6 @@
 import * as React from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   SHORTCUTS,
   matchesShortcut,
@@ -16,6 +17,7 @@ import {
 } from "@/hooks/useTasks";
 import { useSubtasks, useUpdateSubtask } from "@/hooks/useSubtasks";
 import { useAutoSchedule } from "@/hooks";
+import { taskKeys } from "@/lib/query-keys";
 import { toast } from "@/hooks/use-toast";
 import { addDays, startOfWeek, startOfDay, format, parseISO } from "date-fns";
 import type { Task } from "@open-sunsama/types";
@@ -41,7 +43,43 @@ export function TaskShortcutsHandler({
   onSelect,
 }: TaskShortcutsHandlerProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { hoveredTask, hoveredSubtaskId } = useHoveredTask();
+
+  // The hovered task is a snapshot captured at mouse-enter time, so its
+  // `completedAt` can be stale (e.g. right after completing it without moving
+  // the cursor). Resolve the freshest copy from the caches so toggling always
+  // flips the *current* state — letting `c` uncomplete a just-completed task.
+  const getFreshTask = React.useCallback(
+    (task: Task): Task => {
+      const detail = queryClient.getQueryData<Task>(taskKeys.detail(task.id));
+      if (detail) return detail;
+
+      const lists = queryClient.getQueriesData<Task[]>({
+        queryKey: taskKeys.lists(),
+      });
+      for (const [, data] of lists) {
+        const found = data?.find((t) => t.id === task.id);
+        if (found) return found;
+      }
+
+      // List view stores tasks in the infinite-search cache, not lists().
+      const infinite = queryClient.getQueriesData({
+        queryKey: ["tasks", "search", "infinite"],
+      });
+      for (const [, data] of infinite) {
+        if (!data || typeof data !== "object" || !("pages" in data)) continue;
+        const pages = (data as { pages: Array<{ data: Task[] }> }).pages;
+        for (const page of pages) {
+          const found = page.data?.find((t) => t.id === task.id);
+          if (found) return found;
+        }
+      }
+
+      return task;
+    },
+    [queryClient]
+  );
 
   const completeTask = useCompleteTask();
   const createTask = useCreateTask();
@@ -128,16 +166,17 @@ export function TaskShortcutsHandler({
           }
         }
 
-        // Complete the hovered task
+        // Complete the hovered task (toggle against its freshest state).
         if (hoveredTask) {
-          const isCompleted = !!hoveredTask.completedAt;
+          const current = getFreshTask(hoveredTask);
+          const isCompleted = !!current.completedAt;
           completeTask.mutate({
-            id: hoveredTask.id,
+            id: current.id,
             completed: !isCompleted,
           });
           toast({
             title: isCompleted ? "Task uncompleted" : "Task completed",
-            description: `"${hoveredTask.title}"`,
+            description: `"${current.title}"`,
           });
         }
         return;
@@ -416,6 +455,7 @@ export function TaskShortcutsHandler({
     updateSubtask,
     reorderTasks,
     autoSchedule,
+    getFreshTask,
   ]);
 
   return null; // This component renders nothing
