@@ -6,6 +6,8 @@ import {
   Lock,
   Palette,
   ListTodo,
+  Repeat,
+  CalendarDays,
   Bell,
   Key,
   Terminal,
@@ -89,12 +91,14 @@ interface MenuSectionComponentProps {
 function MenuSectionComponent({ section, isLast }: MenuSectionComponentProps) {
   return (
     <div className="mb-2">
-      {/* Section header */}
-      <div className="px-4 py-2">
-        <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          {section.title}
-        </h3>
-      </div>
+      {/* Section header (omitted for untitled groups) */}
+      {section.title && (
+        <div className="px-4 py-2">
+          <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            {section.title}
+          </h3>
+        </div>
+      )}
 
       {/* Section items */}
       <div className="bg-card rounded-lg mx-2 overflow-hidden">
@@ -129,6 +133,8 @@ export function MobileMoreMenu({ onLogout }: MobileMoreMenuProps) {
     onLogout?.();
   }, [logout, onLogout]);
 
+  // Each entry deep-links straight to its content (the settings page opens the
+  // matching sheet directly on mobile — no intermediate settings list).
   const menuSections: MenuSection[] = React.useMemo(() => [
     {
       title: "Work",
@@ -137,7 +143,7 @@ export function MobileMoreMenu({ onLogout }: MobileMoreMenuProps) {
           id: "backlog",
           icon: Inbox,
           label: "Backlog",
-          href: "/app?backlog=true",
+          href: "/app/tasks?backlog=1",
         },
       ],
     },
@@ -165,8 +171,20 @@ export function MobileMoreMenu({ onLogout }: MobileMoreMenuProps) {
         {
           id: "tasks",
           icon: ListTodo,
-          label: "Tasks",
+          label: "Task defaults",
           href: "/app/settings?tab=tasks",
+        },
+        {
+          id: "routines",
+          icon: Repeat,
+          label: "Routines",
+          href: "/app/settings?tab=routines",
+        },
+        {
+          id: "calendars",
+          icon: CalendarDays,
+          label: "Calendars",
+          href: "/app/settings?tab=calendars",
         },
         {
           id: "notifications",
@@ -175,10 +193,12 @@ export function MobileMoreMenu({ onLogout }: MobileMoreMenuProps) {
           href: "/app/settings?tab=notifications",
         },
         {
-          id: "api-keys",
+          // Settings tab id is "api" (not "api-keys") — an invalid tab silently
+          // falls back to the Profile tab.
+          id: "api",
           icon: Key,
           label: "API Keys",
-          href: "/app/settings?tab=api-keys",
+          href: "/app/settings?tab=api",
         },
         {
           id: "mcp",
