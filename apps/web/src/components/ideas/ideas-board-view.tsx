@@ -185,7 +185,7 @@ export function IdeasBoardView({ boardId }: IdeasBoardViewProps) {
     >
       {/* On mobile, snap each column into view while scrolling (Trello/Notion
           style); free horizontal scroll from sm up. Matches the kanban board. */}
-      <div className="flex flex-1 items-start gap-3.5 overflow-x-auto p-4 snap-x snap-mandatory scroll-pl-4 sm:snap-none">
+      <div className="flex min-h-0 flex-1 items-start gap-3.5 overflow-x-auto overflow-y-hidden p-4 snap-x snap-mandatory scroll-pl-4 sm:snap-none">
         <SortableContext
           items={columnIds}
           strategy={horizontalListSortingStrategy}
