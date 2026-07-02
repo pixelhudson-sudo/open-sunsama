@@ -81,7 +81,7 @@ export default function IdeasPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-[calc(100dvh-4rem)] items-center justify-center">
+      <div className="flex h-[calc(100dvh-4.75rem-env(safe-area-inset-bottom))] items-center justify-center lg:h-[calc(100vh-2.75rem)]">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     );
@@ -91,7 +91,7 @@ export default function IdeasPage() {
   if (!boards || boards.length === 0) {
     return (
       <>
-        <div className="flex h-[calc(100dvh-4rem)] flex-col items-center justify-center gap-3 px-6 text-center">
+        <div className="flex h-[calc(100dvh-4.75rem-env(safe-area-inset-bottom))] flex-col items-center justify-center gap-3 px-6 text-center lg:h-[calc(100vh-2.75rem)]">
           <div className="grid h-12 w-12 place-items-center rounded-xl bg-muted text-muted-foreground">
             <LayoutGrid className="h-6 w-6" />
           </div>
@@ -115,7 +115,7 @@ export default function IdeasPage() {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-4rem)] flex-col lg:h-[calc(100vh-2.75rem)] lg:flex-row">
+    <div className="flex h-[calc(100dvh-4.75rem-env(safe-area-inset-bottom))] flex-col lg:h-[calc(100vh-2.75rem)] lg:flex-row">
       {/* Desktop rail */}
       <BoardRail
         boards={boards}
@@ -124,8 +124,10 @@ export default function IdeasPage() {
         onNewBoard={() => setNewBoardOpen(true)}
       />
 
-      {/* Canvas */}
-      <main className="flex min-w-0 flex-1 flex-col bg-muted/30 dark:bg-background">
+      {/* Canvas. `min-h-0` lets this flex child shrink to the bounded page
+          height instead of growing to its content — without it the board can't
+          bound its columns and long lists overflow under the mobile nav. */}
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-muted/30 dark:bg-background">
         {/* Header */}
         <div className="flex items-center gap-2.5 border-b border-border bg-background px-4 py-2.5">
           {/* Mobile board switcher */}

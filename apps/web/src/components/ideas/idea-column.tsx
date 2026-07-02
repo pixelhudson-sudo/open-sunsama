@@ -10,6 +10,7 @@ import type { Idea, IdeaColumn as IdeaColumnType } from "@open-sunsama/types";
 import { cn } from "@/lib/utils";
 import {
   Input,
+  ScrollArea,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -81,13 +82,14 @@ export function IdeaColumnView({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "group/col flex w-[272px] shrink-0 snap-start snap-always flex-col gap-2 rounded-xl border border-border/60 bg-muted/40 p-2.5 transition-colors",
+        "group/col flex h-full w-[272px] shrink-0 snap-start snap-always flex-col gap-2 rounded-xl border border-border/60 bg-muted/40 p-2.5 transition-colors",
         isOver && "border-primary/40 bg-primary/5"
       )}
     >
       {/* Column header. No flex `gap` here — the grip handle manages its own
-          spacing so it can collapse to zero width when not hovered. */}
-      <div className="flex items-center px-1">
+          spacing so it can collapse to zero width when not hovered.
+          `shrink-0` keeps it pinned above the scrolling card list. */}
+      <div className="flex shrink-0 items-center px-1">
         {renaming ? (
           <Input
             autoFocus
@@ -158,32 +160,37 @@ export function IdeaColumnView({
         )}
       </div>
 
-      {/* Cards */}
-      <div className="flex min-h-[8px] flex-col gap-2 overflow-y-auto scrollbar-thin">
-        <SortableContext items={ideaIds} strategy={verticalListSortingStrategy}>
-          {ideas.map((idea) => (
-            <IdeaCard
-              key={idea.id}
-              idea={idea}
-              boardId={boardId}
-              columns={allColumns}
-            />
-          ))}
-        </SortableContext>
+      {/* Cards — scroll inside the column via ScrollArea (same as the kanban
+          DayColumn). Using Radix ScrollArea rather than a raw `overflow-y-auto`
+          div keeps dnd-kit's sortable measurement + auto-scroll well-behaved,
+          while the header above and the "Add idea" button below stay pinned. */}
+      <ScrollArea className="-mr-1.5 flex-1 pr-1.5">
+        <div className="flex flex-col gap-2">
+          <SortableContext items={ideaIds} strategy={verticalListSortingStrategy}>
+            {ideas.map((idea) => (
+              <IdeaCard
+                key={idea.id}
+                idea={idea}
+                boardId={boardId}
+                columns={allColumns}
+              />
+            ))}
+          </SortableContext>
 
-        {/* Drop placeholder only appears during a drag — an idle empty column
-            takes up no space (just its "Add idea" button below). */}
-        {ideas.length === 0 && isDragActive && (
-          <div className="rounded-lg border border-dashed border-border/60 px-2.5 py-4 text-center text-xs leading-relaxed text-muted-foreground">
-            Drop here
-          </div>
-        )}
-      </div>
+          {/* Drop placeholder only appears during a drag — an idle empty column
+              shows just its "Add idea" button below. */}
+          {ideas.length === 0 && isDragActive && (
+            <div className="rounded-lg border border-dashed border-border/60 px-2.5 py-4 text-center text-xs leading-relaxed text-muted-foreground">
+              Drop here
+            </div>
+          )}
+        </div>
+      </ScrollArea>
 
       {/* Add idea — opens the modal (same chrome as Add Task) */}
       <button
         onClick={() => setAddOpen(true)}
-        className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+        className="flex shrink-0 items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
       >
         <Plus className="h-4 w-4" />
         Add idea
