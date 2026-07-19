@@ -73,6 +73,8 @@ services:
       - "traefik.http.routers.opensunsama-api.rule=Host(`${DOMAIN}`) && PathPrefix(`/api`)"
       - "traefik.http.routers.opensunsama-api.entrypoints=websecure"
       - "traefik.http.routers.opensunsama-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.opensunsama-api.middlewares=opensunsama-api-strip"
+      - "traefik.http.middlewares.opensunsama-api-strip.stripprefix.prefixes=/api"
       - "traefik.http.services.opensunsama-api.loadbalancer.server.port=3001"
 
   web:
