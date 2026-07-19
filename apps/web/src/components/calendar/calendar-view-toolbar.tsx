@@ -31,20 +31,21 @@ interface CalendarViewToolbarProps {
 }
 
 const VIEW_MODE_LABELS: Record<CalendarViewMode, string> = {
+  hours: "Hours",
   day: "Day",
   "3-day": "3 days",
   week: "Week",
   month: "Month",
 };
 
-const VIEW_MODES: CalendarViewMode[] = ["day", "3-day", "week", "month"];
+const VIEW_MODES: CalendarViewMode[] = ["hours", "day", "3-day", "week", "month"];
 
 function describeRange(
   rangeStart: Date,
   rangeEnd: Date,
   viewMode: CalendarViewMode
 ): { primary: string; secondary: string } {
-  if (viewMode === "day") {
+  if (viewMode === "day" || viewMode === "hours") {
     return {
       primary: format(rangeStart, "EEEE"),
       secondary: format(rangeStart, "MMM d, yyyy"),
@@ -172,8 +173,8 @@ export function CalendarViewToolbar({
           ))}
         </div>
 
-        {/* Block count badge — only on day view (per-day signal) */}
-        {viewMode === "day" && timeBlocks.length > 0 && (
+        {/* Block count badge — only on single-day views (per-day signal) */}
+        {(viewMode === "day" || viewMode === "hours") && timeBlocks.length > 0 && (
           <span className="hidden sm:inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
             {timeBlocks.length} block{timeBlocks.length !== 1 ? "s" : ""}
           </span>

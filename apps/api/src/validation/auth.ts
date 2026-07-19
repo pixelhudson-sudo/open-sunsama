@@ -40,7 +40,7 @@ export const userPreferencesSchema = z.object({
   workEndHour: z.number().int().min(0).max(23).optional(),
   homeTab: z.enum(["board", "tasks", "calendar"]).optional(),
   weekStartsOn: z.union([z.literal(0), z.literal(1)]).optional(),
-  calendarViewMode: z.enum(["day", "3-day", "week", "month"]).optional(),
+  calendarViewMode: z.enum(["hours", "day", "3-day", "week", "month"]).optional(),
   addTaskPosition: z.enum(["top", "bottom"]).optional(),
 });
 

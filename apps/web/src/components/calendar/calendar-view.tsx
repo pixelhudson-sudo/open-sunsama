@@ -13,6 +13,7 @@ import {
   subWeeks,
   addMonths,
   subMonths,
+  isSameDay,
 } from "date-fns";
 import type {
   Task,
@@ -63,7 +64,7 @@ const VIEW_MODE_STORAGE_KEY = "open_sunsama_calendar_view_mode";
 function getStoredViewMode(): CalendarViewMode | null {
   if (typeof window === "undefined") return null;
   const v = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
-  if (v === "day" || v === "3-day" || v === "week" || v === "month") return v;
+  if (v === "hours" || v === "day" || v === "3-day" || v === "week" || v === "month") return v;
   return null;
 }
 
@@ -89,6 +90,7 @@ function computeRange(
   weekStartsOn: 0 | 1
 ): VisibleRange {
   switch (viewMode) {
+    case "hours":
     case "day": {
       const start = startOfDay(selectedDate);
       const end = endOfDay(selectedDate);
@@ -256,9 +258,10 @@ export function CalendarView({
     useTimeBlocksForDate(dateString);
   const { data: rangeTimeBlocks = [], isLoading: isLoadingRangeBlocks } =
     useTimeBlocksForDateRange(range.start, range.end);
-  const timeBlocks = viewMode === "day" ? dayTimeBlocks : rangeTimeBlocks;
+  const isSingleDayView = viewMode === "day" || viewMode === "hours";
+  const timeBlocks = isSingleDayView ? dayTimeBlocks : rangeTimeBlocks;
   const isLoadingBlocks =
-    viewMode === "day" ? isLoadingDayBlocks : isLoadingRangeBlocks;
+    isSingleDayView ? isLoadingDayBlocks : isLoadingRangeBlocks;
 
   // Fetch external calendar events for the visible range. `.toISOString()`
   // encodes the user's local-day boundary as a real UTC instant so the
@@ -266,6 +269,31 @@ export function CalendarView({
   const fromDate = range.start.toISOString();
   const toDate = range.end.toISOString();
   const { data: calendarEvents = [] } = useCalendarEvents(fromDate, toDate);
+
+  // Intervals for the adjacency snap: when dragging or creating a block
+  // near the end of another event, the start snaps to that end while
+  // keeping the block's own duration. Anchored on the selected (single)
+  // day — the snap only runs on the day/hours timeline path.
+  const snapIntervals = React.useMemo(() => {
+    const dayStart = startOfDay(selectedDate);
+    const dayEnd = endOfDay(selectedDate);
+    const intervals: { id: string; start: Date; end: Date }[] = [];
+    for (const block of dayTimeBlocks) {
+      const start = new Date(block.startTime);
+      if (isSameDay(start, selectedDate)) {
+        intervals.push({ id: block.id, start, end: new Date(block.endTime) });
+      }
+    }
+    for (const event of calendarEvents) {
+      if (event.isAllDay) continue;
+      const start = new Date(event.startTime);
+      const end = new Date(event.endTime);
+      if (start < dayEnd && end > dayStart) {
+        intervals.push({ id: event.id, start, end });
+      }
+    }
+    return intervals;
+  }, [dayTimeBlocks, calendarEvents, selectedDate]);
 
   // Per-calendar capability map — used by the detail sheet to gate the
   // edit / delete affordances. A calendar is editable if (a) the
@@ -333,6 +361,7 @@ export function CalendarView({
     endDrag,
     cancelDrag,
   } = useCalendarDnd(selectedDate, {
+    snapIntervals,
     onTaskDrop: (taskId, startTime, endTime) => {
       const task = unscheduledTasks.find((t) => t.id === taskId);
       if (task) {
@@ -388,10 +417,10 @@ export function CalendarView({
   });
 
   // Navigation handlers — step size depends on view mode.
-  // Day → ±1 day; 3-Day → ±3 days; Week → ±1 week; Month → ±1 month.
+  // Hours/Day → ±1 day; 3-Day → ±3 days; Week → ±1 week; Month → ±1 month.
   const goToPreviousDay = React.useCallback(() => {
     setSelectedDate((d) => {
-      if (viewMode === "day") return subDays(d, 1);
+      if (viewMode === "day" || viewMode === "hours") return subDays(d, 1);
       if (viewMode === "3-day") return subDays(d, 3);
       if (viewMode === "week") return subWeeks(d, 1);
       return subMonths(d, 1); // "month"
@@ -399,7 +428,7 @@ export function CalendarView({
   }, [viewMode]);
   const goToNextDay = React.useCallback(() => {
     setSelectedDate((d) => {
-      if (viewMode === "day") return addDays(d, 1);
+      if (viewMode === "day" || viewMode === "hours") return addDays(d, 1);
       if (viewMode === "3-day") return addDays(d, 3);
       if (viewMode === "week") return addWeeks(d, 1);
       return addMonths(d, 1); // "month"
@@ -409,8 +438,8 @@ export function CalendarView({
 
   // Keyboard shortcuts — match Google Calendar's defaults so the muscle
   // memory transfers cleanly:
-  //   D = Day, X = 3 days (their "4 days" key, near enough), W = Week,
-  //   M = Month, T = Today, J = previous range, K = next range.
+  //   H = Hours, D = Day, X = 3 days (their "4 days" key, near enough),
+  //   W = Week, M = Month, T = Today, J = previous range, K = next range.
   // Skip when focus is in a form field OR when ANY modal/popover is
   // open — without the second guard, pressing "M" while an event
   // detail sheet is open silently switches the calendar view behind
@@ -446,6 +475,9 @@ export function CalendarView({
         return;
       }
       switch (e.key.toLowerCase()) {
+        case "h":
+          setViewMode("hours");
+          break;
         case "d":
           setViewMode("day");
           break;
@@ -728,10 +760,12 @@ export function CalendarView({
 
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Day view keeps the unscheduled-tasks side panel + DnD-aware
-            Timeline. Multi-day and month views drop the panel — they're
+        {/* Single-day views (day + hours) keep the unscheduled-tasks
+            side panel + DnD-aware Timeline. The "hours" view renders
+            the same Timeline with fineGrained quarter/half-hour grid
+            lines. Multi-day and month views drop the panel — they're
             read-mostly so the extra real estate goes to the calendar. */}
-        {viewMode === "day" && (
+        {(viewMode === "day" || viewMode === "hours") && (
           <>
             <UnscheduledTasksPanel
               tasks={unscheduledTasks}
@@ -742,6 +776,7 @@ export function CalendarView({
             />
             <Timeline
               date={selectedDate}
+              fineGrained={viewMode === "hours"}
               timeBlocks={timeBlocks}
               calendarEvents={calendarEvents}
               isLoading={isLoading}
@@ -814,8 +849,8 @@ export function CalendarView({
         )}
       </div>
 
-      {/* Drag Overlay (only meaningful in day view) */}
-      {viewMode === "day" && (
+      {/* Drag Overlay (only meaningful in single-day views) */}
+      {(viewMode === "day" || viewMode === "hours") && (
         <DragOverlay dragState={dragState} dropPreview={dropPreview} />
       )}
 

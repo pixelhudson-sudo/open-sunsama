@@ -6,7 +6,7 @@ import {
   format,
 } from "date-fns";
 import type { TimeBlock } from "@open-sunsama/types";
-import type { DropPreview } from "./calendar-dnd-types";
+import type { DropPreview, SnapInterval } from "./calendar-dnd-types";
 
 /**
  * Constants for timeline calculations
@@ -43,6 +43,40 @@ export function calculateYFromTime(time: Date): number {
 }
 
 /**
+ * Snap a candidate start time to the end of an adjacent event.
+ *
+ * When the (already interval-snapped) start lands within `thresholdMins`
+ * of another interval's end, the start snaps to that end — so a dropped
+ * or moved block butts up against the previous event instead of leaving
+ * a sliver gap or slightly overlapping it. The caller keeps the block's
+ * own duration by computing `end = start + duration` afterwards.
+ *
+ * `excludeId` skips the interval being dragged — without it, a block
+ * nudged within a threshold of its *own* end would snap onto itself.
+ */
+export function snapStartToAdjacentEnd(
+  startTime: Date,
+  intervals: SnapInterval[] | undefined,
+  excludeId?: string,
+  thresholdMins: number = SNAP_INTERVAL
+): Date {
+  if (!intervals || intervals.length === 0) return startTime;
+  const startMs = startTime.getTime();
+  let bestEnd: Date | null = null;
+  let bestDiff = Infinity;
+  for (const iv of intervals) {
+    if (excludeId && iv.id === excludeId) continue;
+    const diff = Math.abs(startMs - iv.end.getTime());
+    // diff === 0 means already perfectly back-to-back; harmless to keep.
+    if (diff <= thresholdMins * 60_000 && diff < bestDiff) {
+      bestDiff = diff;
+      bestEnd = iv.end;
+    }
+  }
+  return bestEnd ? new Date(bestEnd) : startTime;
+}
+
+/**
  * Snap time to nearest interval
  */
 export function snapToInterval(time: Date, intervalMinutes: number = SNAP_INTERVAL): Date {
@@ -66,10 +100,21 @@ export function snapToInterval(time: Date, intervalMinutes: number = SNAP_INTERV
 export function calculateTaskDropPreview(
   y: number,
   baseDate: Date,
-  durationMins: number = 60
+  durationMins: number = 60,
+  snapIntervals?: SnapInterval[]
 ): DropPreview {
   const rawTime = calculateTimeFromY(y, baseDate);
-  const startTime = snapToInterval(rawTime);
+  let startTime = snapToInterval(rawTime);
+
+  // Adjacency snap: butt the new block against the end of a previous
+  // event when close by, keeping the block's own duration. Guard the
+  // day boundary — a snap that would push the end past midnight is
+  // worse than the sliver gap it was avoiding.
+  const adjacentStart = snapStartToAdjacentEnd(startTime, snapIntervals);
+  if (minutesFromMidnight(adjacentStart) + durationMins <= TIMELINE_END_MINUTE) {
+    startTime = adjacentStart;
+  }
+
   const endTime = addMinutes(startTime, durationMins);
 
   const top = calculateYFromTime(startTime);
@@ -97,7 +142,8 @@ function minutesFromMidnight(d: Date): number {
 export function calculateMovePreview(
   deltaY: number,
   block: TimeBlock,
-  baseDate: Date
+  baseDate: Date,
+  snapIntervals?: SnapInterval[]
 ): DropPreview {
   const originalDuration = differenceInMinutes(
     new Date(block.endTime),
@@ -132,6 +178,24 @@ export function calculateMovePreview(
     );
     startTime = addMinutes(startOfDayBase, Math.max(0, maxStartMins));
   }
+
+  // Adjacency snap: butt the moved block against the end of a previous
+  // event when close by, keeping its own duration. The dragged block's
+  // own interval is excluded so nudging it within a threshold of its
+  // own end doesn't snap it onto itself. Guard the day boundary — only
+  // take the snap if the full block still fits inside the day.
+  const adjacentStart = snapStartToAdjacentEnd(
+    startTime,
+    snapIntervals,
+    block.id
+  );
+  if (
+    minutesFromMidnight(adjacentStart) + originalDuration <=
+    TIMELINE_END_MINUTE
+  ) {
+    startTime = adjacentStart;
+  }
+
   const endTime = addMinutes(startTime, originalDuration);
 
   const top = calculateYFromTime(startTime);

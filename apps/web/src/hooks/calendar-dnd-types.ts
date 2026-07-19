@@ -1,6 +1,18 @@
 import type { Task, TimeBlock, CalendarEvent } from "@open-sunsama/types";
 
 /**
+ * A timed interval on the visible day that a dragged block can snap to.
+ * Built from time blocks + external calendar events; used by the
+ * adjacency snap (start snaps to the end of a previous event while
+ * keeping the dragged block's own duration).
+ */
+export interface SnapInterval {
+  id: string;
+  start: Date;
+  end: Date;
+}
+
+/**
  * Types for drag and drop operations
  */
 export type DragType =
@@ -50,4 +62,11 @@ export interface CalendarDndOptions {
    * either edge.
    */
   onEventResize?: (eventId: string, startTime: Date, endTime: Date) => void;
+  /**
+   * Timed intervals on the visible day (time blocks + external events).
+   * When a dragged block's candidate start lands within one SNAP_INTERVAL
+   * of an interval's end, the start snaps to that end — producing
+   * back-to-back schedules while preserving the block's duration.
+   */
+  snapIntervals?: SnapInterval[];
 }

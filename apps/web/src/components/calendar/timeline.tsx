@@ -23,12 +23,21 @@ import {
   calculateYFromTime,
   calculateTimeFromY,
   snapToInterval,
+  snapStartToAdjacentEnd,
   type DropPreview,
   type DragState,
+  type SnapInterval,
 } from "@/hooks/useCalendarDnd";
 
 interface TimelineProps {
   date: Date;
+  /**
+   * "Hours" view: render quarter-hour grid lines and :15/:30/:45
+   * gutter labels on top of the standard hour/half-hour grid.
+   * Pixel-per-hour math is unchanged so all drag/snap logic is
+   * identical to the day view.
+   */
+  fineGrained?: boolean;
   timeBlocks: TimeBlockType[];
   calendarEvents?: CalendarEvent[];
   isLoading?: boolean;
@@ -78,6 +87,7 @@ function generateHours(): number[] {
  */
 export function Timeline({
   date,
+  fineGrained = false,
   timeBlocks,
   calendarEvents = [],
   isLoading = false,
@@ -219,6 +229,24 @@ export function Timeline({
     return layoutOverlappingItems(items);
   }, [timedEvents, dayBlocks, date]);
 
+  // Intervals for the adjacency snap (click-to-create butts the new
+  // block against the end of a previous event). Reuses the already
+  // day-filtered blocks and timed events.
+  const snapIntervals = React.useMemo<SnapInterval[]>(() => {
+    return [
+      ...dayBlocks.map((b) => ({
+        id: b.id,
+        start: new Date(b.startTime),
+        end: new Date(b.endTime),
+      })),
+      ...timedEvents.map((e) => ({
+        id: e.id,
+        start: new Date(e.startTime),
+        end: new Date(e.endTime),
+      })),
+    ];
+  }, [dayBlocks, timedEvents]);
+
   // Handle click on empty time slot
   const handleTimeSlotClick = (e: React.MouseEvent<HTMLDivElement>) => {
     // Don't trigger if clicking on a time block, an external calendar
@@ -254,7 +282,10 @@ export function Timeline({
     
     // Calculate time from Y position
     const clickedTime = calculateTimeFromY(relativeY, date);
-    const snappedStartTime = snapToInterval(clickedTime, SNAP_INTERVAL);
+    let snappedStartTime = snapToInterval(clickedTime, SNAP_INTERVAL);
+    // Butt the new block against the end of a previous event when the
+    // click lands near one — keeps the default 60-minute duration.
+    snappedStartTime = snapStartToAdjacentEnd(snappedStartTime, snapIntervals);
     const snappedEndTime = addMinutes(snappedStartTime, 60);
 
     onTimeSlotClick(snappedStartTime, snappedEndTime);
@@ -298,6 +329,23 @@ export function Timeline({
                 <span className="absolute -top-2 right-1 sm:right-2 text-[10px] sm:text-xs text-muted-foreground font-medium">
                   {format(setHours(date, hour), "ha").toLowerCase()}
                 </span>
+                {/* "Hours" view: quarter- and half-hour labels. Each
+                    label sits just above its grid line inside the hour
+                    cell, mirroring the hour label's -top-2 offset. */}
+                {fineGrained &&
+                  [15, 30, 45].map((minute) => (
+                    <span
+                      key={minute}
+                      aria-hidden="true"
+                      className="absolute right-1 sm:right-2 text-[9px] leading-none text-muted-foreground/60 tabular-nums"
+                      style={{ top: (HOUR_HEIGHT * minute) / 60 - 6 }}
+                    >
+                      {format(
+                        addMinutes(setHours(date, hour), minute),
+                        "h:mm"
+                      )}
+                    </span>
+                  ))}
               </div>
             ))}
           </div>
@@ -332,10 +380,34 @@ export function Timeline({
             {hours.map((hour) => (
               <div
                 key={`${hour}-half`}
-                className="absolute left-0 right-0 border-b border-border/15"
+                className={cn(
+                  "absolute left-0 right-0 border-b",
+                  fineGrained ? "border-border/25" : "border-border/15"
+                )}
                 style={{ top: (hour - TIMELINE_START_HOUR) * HOUR_HEIGHT + HOUR_HEIGHT / 2 }}
               />
             ))}
+
+            {/* Quarter-hour grid lines ("Hours" view) — the 2/4 line
+                is the half-hour line above, so only 1/4 and 3/4 are
+                drawn here, fainter than the half-hour line. */}
+            {fineGrained &&
+              hours.map((hour) => (
+                <React.Fragment key={`${hour}-quarters`}>
+                  {[1, 3].map((quarter) => (
+                    <div
+                      key={quarter}
+                      aria-hidden="true"
+                      className="absolute left-0 right-0 border-b border-border/10"
+                      style={{
+                        top:
+                          (hour - TIMELINE_START_HOUR) * HOUR_HEIGHT +
+                          (HOUR_HEIGHT / 4) * quarter,
+                      }}
+                    />
+                  ))}
+                </React.Fragment>
+              ))}
 
             {/* Current time indicator */}
             {currentTimePosition !== null && (

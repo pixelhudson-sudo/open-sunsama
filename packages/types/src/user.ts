@@ -11,13 +11,15 @@ export type HomeTabPreference = "board" | "tasks" | "calendar";
 
 /**
  * Granularity of the calendar view.
+ * - "hours": single-day timeline with quarter- and half-hour grid
+ *    lines and labels (fine-grained planning)
  * - "day": single-day timeline (default)
  * - "3-day": three columns side-by-side, today + next two
  * - "week": seven-day week (Sun → Sat or Mon → Sun depending on
  *    `weekStartsOn`)
  * - "month": full-month grid with event chips
  */
-export type CalendarViewMode = "day" | "3-day" | "week" | "month";
+export type CalendarViewMode = "hours" | "day" | "3-day" | "week" | "month";
 
 /**
  * User's display preferences for theme, font, and default home tab.

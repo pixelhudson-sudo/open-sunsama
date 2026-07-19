@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import type { Task, TimeBlock, CalendarEvent } from "@open-sunsama/types";
-import type { DragState, DropPreview, CalendarDndOptions } from "./calendar-dnd-types";
+import type { DragState, DropPreview, CalendarDndOptions, SnapInterval } from "./calendar-dnd-types";
 import {
   calculateTimeFromY,
   calculateYFromTime,
@@ -12,7 +12,7 @@ import {
 } from "./calendar-dnd-utils";
 
 // Re-export types and utilities for backwards compatibility
-export type { DragType, DragState, DropPreview } from "./calendar-dnd-types";
+export type { DragType, DragState, DropPreview, SnapInterval } from "./calendar-dnd-types";
 export {
   HOUR_HEIGHT,
   SNAP_INTERVAL,
@@ -22,6 +22,7 @@ export {
   calculateTimeFromY,
   calculateYFromTime,
   snapToInterval,
+  snapStartToAdjacentEnd,
   calculateTaskDropPreview,
   calculateMovePreview,
   calculateResizePreview,
@@ -40,6 +41,11 @@ export function useCalendarDnd(
   // Track if we just ended a drag operation to prevent click events from firing
   const [justEndedDrag, setJustEndedDrag] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
+  // Adjacency-snap intervals, kept in a ref so the per-render options
+  // object identity doesn't churn the updateDrag callback (and with it
+  // the global mousemove listeners) on every parent render.
+  const snapIntervalsRef = useRef<SnapInterval[] | undefined>(undefined);
+  snapIntervalsRef.current = options?.snapIntervals;
 
   /**
    * Start dragging a task from unscheduled list
@@ -153,14 +159,24 @@ export function useCalendarDnd(
       switch (dragState.type) {
         case "task-to-timeline": {
           const duration = dragState.task?.estimatedMins ?? 60;
-          const preview = calculateTaskDropPreview(relativeY, selectedDate, duration);
+          const preview = calculateTaskDropPreview(
+            relativeY,
+            selectedDate,
+            duration,
+            snapIntervalsRef.current
+          );
           setDropPreview(preview);
           break;
         }
         case "move-block": {
           if (dragState.block) {
             const deltaY = currentY - dragState.startY;
-            const preview = calculateMovePreview(deltaY, dragState.block, selectedDate);
+            const preview = calculateMovePreview(
+              deltaY,
+              dragState.block,
+              selectedDate,
+              snapIntervalsRef.current
+            );
             setDropPreview(preview);
           }
           break;
@@ -189,7 +205,8 @@ export function useCalendarDnd(
             const preview = calculateMovePreview(
               deltaY,
               dragState.event as unknown as TimeBlock,
-              selectedDate
+              selectedDate,
+              snapIntervalsRef.current
             );
             setDropPreview(preview);
           }
