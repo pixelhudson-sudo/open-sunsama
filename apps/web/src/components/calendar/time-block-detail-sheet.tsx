@@ -4,6 +4,7 @@ import { Trash2 } from "lucide-react";
 import type { TimeBlock } from "@open-sunsama/types";
 import {
   useUpdateTimeBlock,
+  useCascadeResizeTimeBlock,
   useDeleteTimeBlock,
   useTask,
   useSubtasks,
@@ -48,6 +49,7 @@ export function TimeBlockDetailSheet({
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
 
   const updateTimeBlock = useUpdateTimeBlock();
+  const cascadeResizeTimeBlock = useCascadeResizeTimeBlock();
   const deleteTimeBlock = useDeleteTimeBlock();
 
   // Fetch associated task and subtasks if linked
@@ -74,6 +76,19 @@ export function TimeBlockDetailSheet({
   const handleSave = async () => {
     if (!timeBlock) return;
 
+    await updateTimeBlock.mutateAsync({
+      id: timeBlock.id,
+      data: {
+        title: title.trim(),
+        notes: notes.trim() || null,
+        color: color,
+      },
+    });
+  };
+
+  const handleTimeSave = async () => {
+    if (!timeBlock) return;
+
     // Parse the time inputs back to full Date objects
     const blockDate = new Date(timeBlock.startTime);
     const [startHour, startMin] = startTime.split(":").map(Number);
@@ -85,16 +100,20 @@ export function TimeBlockDetailSheet({
     const newEndTime = new Date(blockDate);
     newEndTime.setHours(endHour ?? 0, endMin ?? 0, 0, 0);
 
-    await updateTimeBlock.mutateAsync({
-      id: timeBlock.id,
-      data: {
-        title: title.trim(),
-        notes: notes.trim() || null,
-        color: color,
+    // Only cascade if the times actually changed
+    const currentStart = new Date(timeBlock.startTime);
+    const currentEnd = new Date(timeBlock.endTime);
+    const timeChanged =
+      newStartTime.getTime() !== currentStart.getTime() ||
+      newEndTime.getTime() !== currentEnd.getTime();
+
+    if (timeChanged) {
+      await cascadeResizeTimeBlock.mutateAsync({
+        id: timeBlock.id,
         startTime: newStartTime,
         endTime: newEndTime,
-      },
-    });
+      });
+    }
   };
 
   const handleTitleBlur = () => {
@@ -134,7 +153,7 @@ export function TimeBlockDetailSheet({
       newEndHour !== currentEndHour || newEndMin !== currentEndMin;
 
     if (startChanged || endChanged) {
-      handleSave();
+      handleTimeSave();
     }
   };
 

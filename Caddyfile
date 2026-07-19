@@ -1,0 +1,9 @@
+{$DOMAIN} {
+	# API + WebSocket traffic
+	handle_path /api/* {
+		reverse_proxy api:3001
+	}
+
+	# Web app (static)
+	reverse_proxy web:3000
+}

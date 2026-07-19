@@ -663,6 +663,67 @@ export function CalendarView({
         onPreviousDay={goToPreviousDay}
         onNextDay={goToNextDay}
         onToday={goToToday}
+        onAddBreak={() => {
+          const dayBlocks = dayTimeBlocks.slice().sort(
+            (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+          );
+          let start: Date;
+          if (dayBlocks.length > 0) {
+            const last = dayBlocks[dayBlocks.length - 1];
+            start = last ? new Date(last.endTime) : new Date();
+          } else {
+            const now = new Date();
+            const mins = now.getMinutes();
+            const roundedMins = Math.ceil(mins / 15) * 15;
+            start = new Date(now.setMinutes(roundedMins, 0, 0));
+          }
+          const end = new Date(start.getTime() + 15 * 60 * 1000);
+          createTimeBlock.mutate({
+            title: "Break",
+            startTime: start,
+            endTime: end,
+            color: "#9CA3AF",
+          });
+        }}
+        onPrintSchedule={() => {
+          const dayBlocks = dayTimeBlocks.slice().sort(
+            (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+          );
+          const lines: string[] = [];
+          lines.push(format(selectedDate, "EEEE, MMMM d, yyyy"));
+          lines.push("");
+          if (dayBlocks.length === 0) {
+            lines.push("No scheduled blocks.");
+          } else {
+            for (const block of dayBlocks) {
+              const start = format(new Date(block.startTime), "h:mm a");
+              const end = format(new Date(block.endTime), "h:mm a");
+              lines.push(`${start} – ${end}  ${block.title}`);
+            }
+          }
+          const text = lines.join("\n");
+          const printWindow = window.open("", "_blank");
+          if (!printWindow) return;
+          printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+              <head>
+                <title>Daily Schedule</title>
+                <style>
+                  body { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; padding: 2rem; color: #111; }
+                  pre { white-space: pre-wrap; font-size: 14px; line-height: 1.6; }
+                  @media print { body { padding: 0; } }
+                </style>
+              </head>
+              <body>
+                <pre>${text.replace(/</g, "&lt;")}</pre>
+              </body>
+            </html>
+          `);
+          printWindow.document.close();
+          printWindow.focus();
+          setTimeout(() => printWindow.print(), 100);
+        }}
       />
 
       {/* Main Content */}

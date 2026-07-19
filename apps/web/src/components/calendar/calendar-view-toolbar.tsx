@@ -1,5 +1,5 @@
 import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Coffee, Printer } from "lucide-react";
 import { Button } from "@/components/ui";
 import type { TimeBlock, CalendarViewMode } from "@open-sunsama/types";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,8 @@ interface CalendarViewToolbarProps {
   onPreviousDay: () => void;
   onNextDay: () => void;
   onToday: () => void;
+  onAddBreak?: () => void;
+  onPrintSchedule?: () => void;
   className?: string;
 }
 
@@ -85,6 +87,8 @@ export function CalendarViewToolbar({
   onPreviousDay,
   onNextDay,
   onToday,
+  onAddBreak,
+  onPrintSchedule,
 }: CalendarViewToolbarProps) {
   // "Today" is highlighted when today's date falls anywhere in the visible
   // range — for day view that collapses back to "selectedDate is today",
@@ -174,6 +178,30 @@ export function CalendarViewToolbar({
             {timeBlocks.length} block{timeBlocks.length !== 1 ? "s" : ""}
           </span>
         )}
+
+        {/* Break & Print actions */}
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onAddBreak}
+            aria-label="Add break"
+            className="h-9 px-2.5 text-xs gap-1.5"
+          >
+            <Coffee className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Break</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onPrintSchedule}
+            aria-label="Print schedule"
+            className="h-9 px-2.5 text-xs gap-1.5"
+          >
+            <Printer className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Print</span>
+          </Button>
+        </div>
       </div>
     </div>
   );

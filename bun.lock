@@ -1,5 +1,6 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "open-sunsama",
@@ -15,7 +16,7 @@
     },
     "apps/api": {
       "name": "@open-sunsama/api",
-      "version": "1.0.8",
+      "version": "1.0.11",
       "dependencies": {
         "@aws-sdk/client-s3": "^3.978.0",
         "@aws-sdk/s3-request-presigner": "^3.978.0",
@@ -52,7 +53,7 @@
     },
     "apps/desktop": {
       "name": "@open-sunsama/desktop",
-      "version": "1.0.8",
+      "version": "1.0.11",
       "dependencies": {
         "@tauri-apps/api": "^2.2.0",
         "@tauri-apps/plugin-autostart": "^2.2.0",
@@ -67,7 +68,7 @@
     },
     "apps/expo-mobile": {
       "name": "@open-sunsama/expo-mobile",
-      "version": "1.0.8",
+      "version": "1.0.11",
       "dependencies": {
         "@open-sunsama/api-client": "workspace:*",
         "@open-sunsama/types": "workspace:*",
@@ -97,7 +98,7 @@
     },
     "apps/mobile": {
       "name": "@open-sunsama/mobile",
-      "version": "1.0.8",
+      "version": "1.0.11",
       "dependencies": {
         "@tauri-apps/api": "^2.2.0",
         "@tauri-apps/plugin-biometric": "^2.2.0",
@@ -113,7 +114,7 @@
     },
     "apps/web": {
       "name": "@open-sunsama/web",
-      "version": "1.0.8",
+      "version": "1.0.11",
       "dependencies": {
         "@dnd-kit/core": "^6.1.0",
         "@dnd-kit/modifiers": "^9.0.0",
@@ -214,6 +215,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@neondatabase/serverless": "^0.9.5",
+        "dotenv": "^17.4.1",
         "drizzle-orm": "^0.45.1",
         "drizzle-zod": "^0.5.1",
         "postgres": "^3.4.8",
@@ -3039,6 +3041,8 @@
     "@mapbox/node-pre-gyp/https-proxy-agent": ["https-proxy-agent@5.0.1", "", { "dependencies": { "agent-base": "6", "debug": "4" } }, "sha512-dFcAjpTQFgoLMzC2VwU+C/CbS7uRL0lWmxDITmqm7C+7F0Odmj6s9l6alZc6AELXhrnggM2CeWSXHGOdX2YtwA=="],
 
     "@open-sunsama/api-client/vitest": ["vitest@2.1.9", "", { "dependencies": { "@vitest/expect": "2.1.9", "@vitest/mocker": "2.1.9", "@vitest/pretty-format": "^2.1.9", "@vitest/runner": "2.1.9", "@vitest/snapshot": "2.1.9", "@vitest/spy": "2.1.9", "@vitest/utils": "2.1.9", "chai": "^5.1.2", "debug": "^4.3.7", "expect-type": "^1.1.0", "magic-string": "^0.30.12", "pathe": "^1.1.2", "std-env": "^3.8.0", "tinybench": "^2.9.0", "tinyexec": "^0.3.1", "tinypool": "^1.0.1", "tinyrainbow": "^1.2.0", "vite": "^5.0.0", "vite-node": "2.1.9", "why-is-node-running": "^2.3.0" }, "peerDependencies": { "@edge-runtime/vm": "*", "@types/node": "^18.0.0 || >=20.0.0", "@vitest/browser": "2.1.9", "@vitest/ui": "2.1.9", "happy-dom": "*", "jsdom": "*" }, "optionalPeers": ["@edge-runtime/vm", "@types/node", "@vitest/browser", "@vitest/ui", "happy-dom", "jsdom"], "bin": { "vitest": "vitest.mjs" } }, "sha512-MSmPM9REYqDGBI8439mA4mWhV5sKmDlBKWIYbA3lRb2PTHACE0mgKwA8yQ2xq9vxDTuk4iPrECBAEW2aoFXY0Q=="],
+
+    "@open-sunsama/database/dotenv": ["dotenv@17.4.2", "", {}, "sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw=="],
 
     "@open-sunsama/expo-mobile/@tanstack/react-query": ["@tanstack/react-query@5.90.20", "", { "dependencies": { "@tanstack/query-core": "5.90.20" }, "peerDependencies": { "react": "^18 || ^19" } }, "sha512-vXBxa+qeyveVO7OA0jX1z+DeyCA4JKnThKv411jd5SORpBKgkcVnYKCiBgECvADvniBX7tobwBmg01qq9JmMJw=="],
 

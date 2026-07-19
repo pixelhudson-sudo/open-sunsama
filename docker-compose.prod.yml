@@ -1,0 +1,111 @@
+version: '3.8'
+
+# Production Docker Compose for Open Sunsama on a VPS
+# Usage:
+#   1. cp .env.production.example .env
+#   2. Edit .env with your domain and secrets
+#   3. docker compose -f docker-compose.prod.yml up -d --build
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: opensunsama-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-opensunsama}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-opensunsama}
+      POSTGRES_DB: ${POSTGRES_DB:-opensunsama}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-opensunsama} -d ${POSTGRES_DB:-opensunsama}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - opensunsama
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.migrate
+    container_name: opensunsama-migrate
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-opensunsama}:${POSTGRES_PASSWORD:-opensunsama}@postgres:5432/${POSTGRES_DB:-opensunsama}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - opensunsama
+    profiles:
+      - migrate
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: opensunsama-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-opensunsama}:${POSTGRES_PASSWORD:-opensunsama}@postgres:5432/${POSTGRES_DB:-opensunsama}
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGIN: https://${DOMAIN}
+      PORT: 3001
+      ROLLOVER_ENABLED: "true"
+      REDIS_URL: ${REDIS_URL:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      WEB_PUSH_PUBLIC_KEY: ${WEB_PUSH_PUBLIC_KEY:-}
+      WEB_PUSH_PRIVATE_KEY: ${WEB_PUSH_PRIVATE_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - opensunsama
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        VITE_API_URL: https://${DOMAIN}/api
+        VITE_WS_URL: wss://${DOMAIN}/api/ws
+    container_name: opensunsama-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      - opensunsama
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: opensunsama-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      DOMAIN: ${DOMAIN}
+    depends_on:
+      - web
+      - api
+    networks:
+      - opensunsama
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  opensunsama:
+    driver: bridge

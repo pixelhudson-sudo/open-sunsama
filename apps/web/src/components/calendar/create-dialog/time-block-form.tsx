@@ -1,6 +1,6 @@
 import * as React from "react";
 import { format } from "date-fns";
-import { ListTodo } from "lucide-react";
+import { ListTodo, Clock } from "lucide-react";
 import { useCreateTimeBlock, useTasks } from "@/hooks";
 import {
   Button,
@@ -29,6 +29,8 @@ export function TimeBlockForm({
     null
   );
   const [showTaskList, setShowTaskList] = React.useState(false);
+  const [startTimeInput, setStartTimeInput] = React.useState(format(startTime, "HH:mm"));
+  const [endTimeInput, setEndTimeInput] = React.useState(format(endTime, "HH:mm"));
 
   const createTimeBlock = useCreateTimeBlock();
 
@@ -43,6 +45,8 @@ export function TimeBlockForm({
     setTitle("");
     setSelectedTaskId(null);
     setShowTaskList(false);
+    setStartTimeInput(format(startTime, "HH:mm"));
+    setEndTimeInput(format(endTime, "HH:mm"));
   }, [date, startTime, endTime]);
 
   React.useEffect(() => {
@@ -52,14 +56,25 @@ export function TimeBlockForm({
     }
   }, [selectedTaskId, availableTasks]);
 
+  const buildTimeDate = (timeInput: string): Date | null => {
+    const [hours, mins] = timeInput.split(":").map(Number);
+    if (isNaN(hours ?? 0) || isNaN(mins ?? 0)) return null;
+    const d = new Date(date);
+    d.setHours(hours ?? 0, mins ?? 0, 0, 0);
+    return d;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
 
+    const finalStart = buildTimeDate(startTimeInput) ?? startTime;
+    const finalEnd = buildTimeDate(endTimeInput) ?? endTime;
+
     await createTimeBlock.mutateAsync({
       title: title.trim(),
-      startTime,
-      endTime,
+      startTime: finalStart,
+      endTime: finalEnd,
       taskId: selectedTaskId ?? undefined,
     });
     onClose();
@@ -80,6 +95,28 @@ export function TimeBlockForm({
           placeholder="What are you working on?"
           autoFocus
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label className="flex items-center gap-2">
+          <Clock className="h-4 w-4" />
+          Time
+        </Label>
+        <div className="flex items-center gap-2">
+          <Input
+            type="time"
+            value={startTimeInput}
+            onChange={(e) => setStartTimeInput(e.target.value)}
+            className="h-9 w-28 text-sm"
+          />
+          <span className="text-muted-foreground/60">–</span>
+          <Input
+            type="time"
+            value={endTimeInput}
+            onChange={(e) => setEndTimeInput(e.target.value)}
+            className="h-9 w-28 text-sm"
+          />
+        </div>
       </div>
 
       <div className="space-y-2">
