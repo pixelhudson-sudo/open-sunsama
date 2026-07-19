@@ -1,0 +1,103 @@
+version: '3.8'
+
+# Production Docker Compose for Open Sunsama behind an existing Traefik proxy.
+# This is the right choice for Hostinger VPS templates that already run Traefik on ports 80/443.
+#
+# Usage:
+#   1. cp .env.production.example .env
+#   2. Edit .env: DOMAIN=sunsama.harmo.vip, POSTGRES_PASSWORD=..., JWT_SECRET=...
+#   3. docker compose -f docker-compose.traefik.yml up -d --build
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: opensunsama-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-opensunsama}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-opensunsama}
+      POSTGRES_DB: ${POSTGRES_DB:-opensunsama}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-opensunsama} -d ${POSTGRES_DB:-opensunsama}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - opensunsama
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.migrate
+    container_name: opensunsama-migrate
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-opensunsama}:${POSTGRES_PASSWORD:-opensunsama}@postgres:5432/${POSTGRES_DB:-opensunsama}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - opensunsama
+    profiles:
+      - migrate
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: opensunsama-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-opensunsama}:${POSTGRES_PASSWORD:-opensunsama}@postgres:5432/${POSTGRES_DB:-opensunsama}
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGIN: https://${DOMAIN}
+      PORT: 3001
+      ROLLOVER_ENABLED: "true"
+      REDIS_URL: ${REDIS_URL:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      WEB_PUSH_PUBLIC_KEY: ${WEB_PUSH_PUBLIC_KEY:-}
+      WEB_PUSH_PRIVATE_KEY: ${WEB_PUSH_PRIVATE_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - opensunsama
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.opensunsama-api.rule=Host(`${DOMAIN}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.opensunsama-api.entrypoints=websecure"
+      - "traefik.http.routers.opensunsama-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.opensunsama-api.loadbalancer.server.port=3001"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        VITE_API_URL: https://${DOMAIN}/api
+        VITE_WS_URL: wss://${DOMAIN}/api/ws
+    container_name: opensunsama-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      - opensunsama
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.opensunsama-web.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.opensunsama-web.entrypoints=websecure"
+      - "traefik.http.routers.opensunsama-web.tls.certresolver=letsencrypt"
+      - "traefik.http.services.opensunsama-web.loadbalancer.server.port=3000"
+
+volumes:
+  postgres_data:
+
+networks:
+  opensunsama:
+    driver: bridge
