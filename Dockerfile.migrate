@@ -28,5 +28,6 @@ COPY packages/utils/ ./packages/utils/
 # Build database package
 RUN bun run build --filter=@open-sunsama/database --filter=@open-sunsama/types --filter=@open-sunsama/utils
 
-# Default command: run migrations then exit
-CMD ["bun", "run", "db:migrate", "--filter=@open-sunsama/database"]
+# Default command: run migrations from the database package directory
+WORKDIR /app/packages/database
+CMD ["bun", "run", "db:migrate"]
