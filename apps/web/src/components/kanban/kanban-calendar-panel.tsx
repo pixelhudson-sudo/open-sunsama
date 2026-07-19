@@ -14,7 +14,6 @@ import type {
 import { cn } from "@/lib/utils";
 import {
   useTimeBlocks,
-  useMoveTimeBlock,
   useCascadeResizeTimeBlock,
 } from "@/hooks/useTimeBlocks";
 import {
@@ -130,7 +129,6 @@ export function KanbanCalendarPanel({
   );
 
   // Mutations
-  const moveTimeBlock = useMoveTimeBlock();
   const cascadeResizeTimeBlock = useCascadeResizeTimeBlock();
 
   // Calendar DnD hook
@@ -147,7 +145,8 @@ export function KanbanCalendarPanel({
     cancelDrag,
   } = useCalendarDnd(date, {
     onBlockMove: (blockId, startTime, endTime) => {
-      moveTimeBlock.mutate({ id: blockId, startTime, endTime });
+      // Moves cascade through touching blocks, same as resizes.
+      cascadeResizeTimeBlock.mutate({ id: blockId, startTime, endTime });
     },
     onBlockResize: (blockId, startTime, endTime) => {
       cascadeResizeTimeBlock.mutate({ id: blockId, startTime, endTime });

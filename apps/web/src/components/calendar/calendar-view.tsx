@@ -27,7 +27,6 @@ import {
   useTimeBlocksForDate,
   useTimeBlocksForDateRange,
   useCreateTimeBlock,
-  useMoveTimeBlock,
   useCascadeResizeTimeBlock,
 } from "@/hooks";
 import { useAuth } from "@/hooks/useAuth";
@@ -330,7 +329,6 @@ export function CalendarView({
 
   // Mutations
   const createTimeBlock = useCreateTimeBlock();
-  const moveTimeBlock = useMoveTimeBlock();
   const cascadeResizeTimeBlock = useCascadeResizeTimeBlock();
 
   // Filter tasks that don't have a time block on this day
@@ -374,7 +372,10 @@ export function CalendarView({
       }
     },
     onBlockMove: (blockId, startTime, endTime) => {
-      moveTimeBlock.mutate({ id: blockId, startTime, endTime });
+      // Moves cascade through blocks connected by touching boundaries
+      // (same endpoint as resizes) — the whole back-to-back chain
+      // follows, each block keeping its own duration.
+      cascadeResizeTimeBlock.mutate({ id: blockId, startTime, endTime });
     },
     onBlockResize: (blockId, startTime, endTime) => {
       // Use cascade resize to automatically shift blocks below (server-side)

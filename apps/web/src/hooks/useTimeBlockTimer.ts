@@ -110,8 +110,11 @@ export function useResizeTimeBlock() {
 }
 
 /**
- * Resize a time block with cascade effect - shifts all overlapping blocks below
- * Uses the server-side cascade resize endpoint for atomic updates
+ * Adjust a time block's times with cascade effect - blocks connected by
+ * touching boundaries (a block's start = another's end) shift along with
+ * it, keeping their own durations. Covers moves, handle resizes, and
+ * sidebar time edits. Uses the server-side cascade endpoint for atomic
+ * multi-block updates.
  */
 export function useCascadeResizeTimeBlock() {
   const api = useApiClient();
