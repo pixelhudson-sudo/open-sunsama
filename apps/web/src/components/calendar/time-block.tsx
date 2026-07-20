@@ -179,10 +179,11 @@ export function TimeBlock({
             isCompact ? "py-0.5" : "py-1"
           )}
         >
-          {/* Title - dark text for readability */}
+          {/* Title - hidden for break blocks */}
           <p className={cn(
             "truncate font-medium text-foreground",
-            isCompact ? "text-xs" : "text-sm"
+            isCompact ? "text-xs" : "text-sm",
+            block.isBreak && "invisible"
           )}>
             {displayTitle}
           </p>

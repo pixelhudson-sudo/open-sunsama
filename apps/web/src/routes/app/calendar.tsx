@@ -4,7 +4,7 @@ import { CalendarView } from "@/components/calendar";
 import { TaskModal } from "@/components/kanban/task-modal.lazy";
 import { TimeBlockDetailSheet } from "@/components/calendar/time-block-detail-sheet";
 import { QuickCreatePopup } from "@/components/calendar/quick-create-popup";
-import { useTask } from "@/hooks";
+import { useTask, useCreateTimeBlock } from "@/hooks";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileCalendarView } from "@/components/mobile";
 
@@ -124,6 +124,11 @@ export default function CalendarPage() {
           date={quickCreateDate}
           startTime={quickCreateStartTime}
           endTime={quickCreateEndTime}
+          onNextBlock={(nextStart) => {
+            setQuickCreateStartTime(nextStart);
+            setQuickCreateEndTime(undefined);
+            setQuickCreateOpen(true);
+          }}
         />
       </>
     );
@@ -161,6 +166,11 @@ export default function CalendarPage() {
         date={quickCreateDate}
         startTime={quickCreateStartTime}
         endTime={quickCreateEndTime}
+        onNextBlock={(nextStart) => {
+          setQuickCreateStartTime(nextStart);
+          setQuickCreateEndTime(undefined);
+          setQuickCreateOpen(true);
+        }}
       />
     </div>
   );

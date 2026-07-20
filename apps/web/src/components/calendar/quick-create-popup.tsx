@@ -21,6 +21,10 @@ interface QuickCreatePopupProps {
   /** When set from empty-slot click, end time is editable directly.
    *  When omitted (bottom-handle click), end is derived from start + duration. */
   endTime?: Date;
+  /** Called instead of onOpenChange(false) when 'Next Block' is clicked.
+   *  Receives the next start time (current block's end time) so the parent
+   *  can reopen the popup with that value. */
+  onNextBlock?: (nextStart: Date) => void;
 }
 
 export function QuickCreatePopup({
@@ -29,6 +33,7 @@ export function QuickCreatePopup({
   date,
   startTime,
   endTime,
+  onNextBlock,
 }: QuickCreatePopupProps) {
   const [title, setTitle] = React.useState("");
   const [isBreak, setIsBreak] = React.useState(false);
@@ -129,6 +134,21 @@ export function QuickCreatePopup({
     onOpenChange(false);
   };
 
+  const handleNextBlock = async () => {
+    if (!title.trim() && !isBreak) return;
+    const start = getStartTimeValue();
+    const end = getEndTimeValue();
+
+    await createTimeBlock.mutateAsync({
+      title: isBreak ? "" : title.trim(),
+      startTime: start,
+      endTime: end,
+      isBreak: isBreak || undefined,
+      color: isBreak ? "#9CA3AF" : (color || undefined),
+    });
+    onNextBlock?.(end);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[380px]">
@@ -221,6 +241,17 @@ export function QuickCreatePopup({
             >
               {createTimeBlock.isPending ? "Creating..." : "Create"}
             </Button>
+            {onNextBlock && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleNextBlock}
+                disabled={(!title.trim() && !isBreak) || createTimeBlock.isPending}
+              >
+                {createTimeBlock.isPending ? "Creating..." : "Next Block"}
+              </Button>
+            )}
           </div>
         </form>
       </DialogContent>

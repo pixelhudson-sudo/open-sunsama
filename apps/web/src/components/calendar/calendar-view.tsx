@@ -227,7 +227,7 @@ export function CalendarView({
   // then to "day".
   const [viewMode, setViewModeRaw] = React.useState<CalendarViewMode>(() => {
     return (
-      user?.preferences?.calendarViewMode ?? getStoredViewMode() ?? "day"
+      user?.preferences?.calendarViewMode ?? getStoredViewMode() ?? "hours"
     );
   });
   // If the server preference loads *after* mount (typical: /auth/me
@@ -475,12 +475,47 @@ export function CalendarView({
   const handleDownloadTemplate = React.useCallback(async (templateId: string) => {
     const api = getApi();
     const template = await api.scheduleTemplates.get(templateId);
-    if (!template) return;
-    const blob = new Blob([JSON.stringify(template, null, 2)], { type: "application/json" });
+    if (!template?.items) return;
+    // Generate ICS for the next 7 days starting next Monday
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + daysUntilMonday);
+    monday.setHours(0, 0, 0, 0);
+
+    const icsLines: string[] = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//OpenSunsama//Schedule//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+    ];
+    for (let d = 0; d < 7; d++) {
+      const day = new Date(monday);
+      day.setDate(monday.getDate() + d);
+      const dateStr = format(day, 'yyyyMMdd');
+      for (const item of template.items) {
+        const uid = `${template.id}-${d}-${item.startTime}`;
+        const dtStart = `${dateStr}T${item.startTime.replace(':', '')}00`;
+        const dtEnd = `${dateStr}T${item.endTime.replace(':', '')}00`;
+        const now = format(new Date(), "yyyyMMdd'T'HHmmss");
+        icsLines.push('BEGIN:VEVENT');
+        icsLines.push(`UID:${uid}`);
+        icsLines.push(`DTSTART:${dtStart}`);
+        icsLines.push(`DTEND:${dtEnd}`);
+        icsLines.push(`SUMMARY:${item.title || 'Busy'}`);
+        icsLines.push(`DTSTAMP:${now}`);
+        icsLines.push('END:VEVENT');
+      }
+    }
+    icsLines.push('END:VCALENDAR');
+
+    const blob = new Blob([icsLines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
+    const a = document.createElement('a');
     a.href = url;
-    a.download = `${template.name.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`;
+    a.download = `${template.name.replace(/[^a-zA-Z0-9_-]/g, '_')}.ics`;
     a.click();
     URL.revokeObjectURL(url);
   }, []);

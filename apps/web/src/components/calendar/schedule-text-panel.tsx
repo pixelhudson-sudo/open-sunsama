@@ -21,6 +21,16 @@ const FONT_OPTIONS = [
   { label: "Mono", value: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" },
   { label: "Sans", value: "ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif" },
   { label: "Serif", value: "Georgia, 'Times New Roman', serif" },
+  { label: "Arial", value: "Arial, Helvetica, sans-serif" },
+  { label: "Helvetica", value: "Helvetica, Arial, sans-serif" },
+  { label: "Times", value: "'Times New Roman', Times, serif" },
+  { label: "Courier", value: "'Courier New', Courier, monospace" },
+  { label: "Verdana", value: "Verdana, Geneva, sans-serif" },
+  { label: "Trebuchet", value: "'Trebuchet MS', 'Lucida Sans Unicode', sans-serif" },
+  { label: "Georgia", value: "Georgia, serif" },
+  { label: "Palatino", value: "'Palatino Linotype', 'Book Antiqua', Palatino, serif" },
+  { label: "Garamond", value: "Garamond, serif" },
+  { label: "Calibri", value: "Calibri, Candara, Segoe, 'Segoe UI', sans-serif" },
 ];
 
 const FONT_SIZE_OPTIONS = [10, 11, 12, 13, 14, 15, 16];
@@ -63,6 +73,8 @@ function linesFromBlocks(blocks: TimeBlock[]): string[] {
     });
 }
 
+const timeRegex = /^(\d{1,2}:\d{2}\s*(?:am|pm)?)\s*/i;
+
 export function ScheduleTextPanel({
   timeBlocks,
   date,
@@ -91,32 +103,28 @@ export function ScheduleTextPanel({
   const lines = React.useMemo(() => linesFromBlocks(dayBlocks), [dayBlocks]);
   const displayTitle = customTitle || defaultTitle;
 
-  // Persist title per-date
   React.useEffect(() => {
     if (customTitle) storeTitle(dateStr, customTitle);
   }, [customTitle, dateStr]);
 
-  // Reset edit text when blocks change
   React.useEffect(() => {
     if (!editingText) {
       setEditLines(lines.join("\n"));
     }
   }, [lines, editingText]);
 
-  // Sync editLines when opening editor
   const startEditing = React.useCallback(() => {
     setEditLines(lines.join("\n"));
     setEditingText(true);
   }, [lines]);
 
-  // Handle update: parse lines, cascade first changed block, update titles
+  // Handle update: cascade first changed block, update titles
   const handleUpdate = React.useCallback(async () => {
     const parsedLines = editLines.split("\n").filter(Boolean);
     const sortedBlocks = [...dayBlocks].sort(
       (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
     );
 
-    const timeRegex = /^(\d{1,2}):(\d{2})\s*(am|pm)?\s*/i;
     const titleUpdates: Array<{ id: string; title: string }> = [];
     let firstCascadeId: string | null = null;
     let cascadeStart: Date | null = null;
@@ -126,14 +134,12 @@ export function ScheduleTextPanel({
       const line = parsedLines[i]!;
       const block = sortedBlocks[i]!;
 
-      // Extract title (everything after time prefix)
       const titlePart = line.replace(timeRegex, "").trim();
       const newTitle = titlePart || block.title;
       if (newTitle !== block.title) {
         titleUpdates.push({ id: block.id, title: newTitle });
       }
 
-      // Check if the line has a new time
       const match = line.match(timeRegex);
       if (!match) continue;
 
@@ -154,11 +160,7 @@ export function ScheduleTextPanel({
       newStart.setHours(hours, minutes, 0, 0);
       const newEnd = new Date(newStart.getTime() + durationMins * 60000);
 
-      // If this is the first block with a changed start time, cascade
-      if (
-        !firstCascadeId &&
-        newStart.getTime() !== blockStart.getTime()
-      ) {
+      if (!firstCascadeId && newStart.getTime() !== blockStart.getTime()) {
         firstCascadeId = block.id;
         cascadeStart = newStart;
         cascadeEnd = newEnd;
@@ -166,7 +168,6 @@ export function ScheduleTextPanel({
     }
 
     try {
-      // First cascade the first changed block (shifts all downstream)
       if (firstCascadeId && cascadeStart && cascadeEnd) {
         await cascadeResizeTimeBlock.mutateAsync({
           id: firstCascadeId,
@@ -175,8 +176,6 @@ export function ScheduleTextPanel({
           mode: 'all-downstream',
         });
       }
-
-      // Then update any titles that changed
       if (titleUpdates.length > 0) {
         await Promise.all(
           titleUpdates.map((u) =>
@@ -187,14 +186,13 @@ export function ScheduleTextPanel({
           )
         );
       }
-
       setEditingText(false);
     } catch {
       // error handled by hook toast
     }
   }, [editLines, dayBlocks, updateTimeBlock, cascadeResizeTimeBlock]);
 
-  // Drag separator for resizing
+  // Drag separator
   const handleMouseDown = React.useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -217,25 +215,43 @@ export function ScheduleTextPanel({
     };
   }, [isDragging]);
 
-  // Translate — renders into final message box
+  // EN — display English-only schedule in final message box
+  const handleEN = React.useCallback(() => {
+    setFinalMessage(`${displayTitle}\n\n${lines.join("\n")}`);
+  }, [displayTitle, lines]);
+
+  // Translate title for CN1/CN2
+  const translateTitle = React.useCallback(async (api: ReturnType<typeof getApi>, title: string) => {
+    try {
+      return await api.translate(title, "zh-TW");
+    } catch {
+      return title;
+    }
+  }, []);
+
+  // CN1 — full-schedule translation: title + original + translated blocks
   const handleCN1 = React.useCallback(async () => {
     setTranslating(true);
     try {
       const api = getApi();
+      const translatedTitle = await translateTitle(api, displayTitle);
       const fullText = lines.join("\n");
       if (!fullText) return;
       const translated = await api.translate(fullText, "zh-TW");
-      setFinalMessage(fullText + "\n— cn —\n" + translated);
+      setFinalMessage(
+        `${displayTitle} ${translatedTitle}\n\n${fullText}\n\n${translated}`
+      );
     } finally {
       setTranslating(false);
     }
-  }, [lines]);
+  }, [lines, displayTitle, translateTitle]);
 
+  // CN2 — per-line translation: timePrefix translatedTitle originalTitle
   const handleCN2 = React.useCallback(async () => {
     setTranslating(true);
     try {
       const api = getApi();
-      const timeRegex = /^(\d{1,2}:\d{2}\s*(?:am|pm)?)\s*/i;
+      const translatedTitle = await translateTitle(api, displayTitle);
       const translatedLines = await Promise.all(
         lines.map(async (line) => {
           if (!line.trim()) return line;
@@ -246,19 +262,15 @@ export function ScheduleTextPanel({
           return `${timePrefix} ${translated} ${titlePart || ""}`.trim();
         })
       );
-      setFinalMessage(translatedLines.join("\n"));
+      setFinalMessage(
+        `${displayTitle} ${translatedTitle}\n\n${translatedLines.join("\n")}\n\n${lines.join("\n")}`
+      );
     } finally {
       setTranslating(false);
     }
-  }, [lines]);
+  }, [lines, displayTitle, translateTitle]);
 
-  // EN button: copy title + schedule to clipboard
-  const handleEN = React.useCallback(() => {
-    const text = displayTitle + "\n" + lines.join("\n");
-    navigator.clipboard.writeText(text).catch(() => {});
-  }, [displayTitle, lines]);
-
-  // COPY button: copy final message to clipboard
+  // COPY — copy final message to clipboard
   const handleCopy = React.useCallback(() => {
     navigator.clipboard.writeText(finalMessage).catch(() => {});
   }, [finalMessage]);
@@ -304,7 +316,7 @@ export function ScheduleTextPanel({
       {/* Font controls */}
       <div className="border-b px-3 py-1.5 flex items-center gap-2">
         <select
-          className="text-[10px] bg-transparent border border-border rounded px-1 py-0.5 w-14"
+          className="text-[10px] bg-transparent border border-border rounded px-1 py-0.5 flex-1"
           value={fontFamily}
           onChange={(e) => {
             setFontFamily(e.target.value);
@@ -366,7 +378,7 @@ export function ScheduleTextPanel({
           style={{ fontFamily, fontSize}}
           value={finalMessage}
           onChange={(e) => setFinalMessage(e.target.value)}
-          placeholder="CN1/CN2 output appears here..."
+          placeholder="EN/CN1/CN2 output appears here..."
         />
       </div>
 
@@ -383,45 +395,46 @@ export function ScheduleTextPanel({
           </Button>
         )}
 
-        <div className="flex items-center gap-1">
+        <div className="grid grid-cols-4 gap-1">
           <Button
             variant="outline"
             size="sm"
-            className="h-6 text-[10px] px-1.5 flex-1"
+            className="h-7 text-[10px] px-0"
+            onClick={handleEN}
+            disabled={lines.length === 0}
+            title="English schedule in final message box"
+          >
+            EN
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-[10px] px-0"
             onClick={handleCN1}
             disabled={translating || lines.length === 0}
-            title="Translate full schedule, append at bottom"
+            title="Full translation with original"
           >
             CN1
           </Button>
           <Button
             variant="outline"
             size="sm"
-            className="h-6 text-[10px] px-1.5 flex-1"
+            className="h-7 text-[10px] px-0"
             onClick={handleCN2}
             disabled={translating || lines.length === 0}
-            title="Translate each line, prefix before original"
+            title="Per-line translated prefix"
           >
             CN2
           </Button>
           <Button
             variant="outline"
             size="sm"
-            className="h-6 text-[10px] px-1.5"
+            className="h-7 text-[10px] px-0"
             onClick={handleCopy}
             disabled={!finalMessage}
             title="Copy final message"
           >
             COPY
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-6 text-[10px] px-1.5"
-            onClick={handleEN}
-            title="Copy title + schedule"
-          >
-            EN
           </Button>
         </div>
       </div>
