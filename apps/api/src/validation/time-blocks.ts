@@ -18,7 +18,7 @@ function parseTimeToMinutes(time: string): number {
  */
 export const createTimeBlockSchema = z.object({
   taskId: uuidSchema.optional().nullable(),
-  title: z.string().min(1, 'Title is required').max(255),
+  title: z.string().max(255),
   description: z.string().max(1000).optional().nullable(),
   date: dateSchema,
   startTime: timeSchema,
@@ -34,6 +34,12 @@ export const createTimeBlockSchema = z.object({
     return endMinutes > startMinutes;
   },
   { message: 'End time must be after start time', path: ['endTime'] }
+).refine(
+  (data) => {
+    if (!data.title?.trim() && !data.isBreak) return false;
+    return true;
+  },
+  { message: 'Title is required for non-break blocks', path: ['title'] }
 );
 
 /**
@@ -41,7 +47,7 @@ export const createTimeBlockSchema = z.object({
  */
 export const updateTimeBlockSchema = z.object({
   taskId: uuidSchema.optional().nullable(),
-  title: z.string().min(1).max(255).optional(),
+  title: z.string().max(255).optional(),
   description: z.string().max(1000).optional().nullable(),
   date: dateSchema.optional(),
   startTime: timeSchema.optional(),

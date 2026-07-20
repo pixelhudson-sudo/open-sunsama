@@ -75,6 +75,10 @@ export { createApiKeysApi, type ApiKeysApi };
 import { createNotificationsApi, type NotificationsApi } from "./notifications.js";
 export { createNotificationsApi, type NotificationsApi };
 
+// Schedule Templates API
+import { createScheduleTemplatesApi, type ScheduleTemplatesApi } from "./schedule-templates.js";
+export { createScheduleTemplatesApi, type ScheduleTemplatesApi };
+
 // Ideas API
 import {
   createIdeasApi,
@@ -196,6 +200,15 @@ export function createApi(config: ApiClientConfig) {
     apiKeys: createApiKeysApi(client),
     /** Notifications API methods */
     notifications: createNotificationsApi(client),
+    /** Schedule Templates API methods */
+    scheduleTemplates: createScheduleTemplatesApi(client),
+    /** Google Translate proxy */
+    translate: async (text: string, target: string = "zh-TW") => {
+      const res = await client.get<{ success: boolean; data?: { translated: string }; error?: string }>("translate", {
+        searchParams: { text, target },
+      });
+      return res.data?.translated ?? text;
+    },
     /** Ideas API methods (boards / columns / idea cards) */
     ideas: createIdeasApi(client),
     /**

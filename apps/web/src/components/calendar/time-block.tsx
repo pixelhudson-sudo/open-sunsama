@@ -25,6 +25,8 @@ interface TimeBlockProps {
   onEditBlock?: () => void;
   onDragStart?: (e: React.MouseEvent) => void;
   onResizeStart?: (e: React.MouseEvent, edge: "top" | "bottom") => void;
+  /** Double-click the bottom resize handle → create-next chained event */
+  onEndDoubleClick?: () => void;
   onViewTask?: (taskId: string) => void;
   isSelected?: boolean;
   isDragging?: boolean;
@@ -78,6 +80,7 @@ export function TimeBlock({
   onEditBlock,
   onDragStart,
   onResizeStart,
+  onEndDoubleClick,
   onViewTask,
   isSelected = false,
   isDragging = false,
@@ -100,6 +103,9 @@ export function TimeBlock({
   // Duration lock: resize handles are hidden (moves still preserve
   // duration, so dragging stays enabled).
   const canResize = !block.isDurationLocked;
+
+  // Display fallback title for empty break blocks
+  const displayTitle = block.title || (block.isBreak ? "Break" : "Untitled");
 
   const handleMouseDown = (e: React.MouseEvent) => {
     // Don't start drag if clicking on resize handles
@@ -141,11 +147,7 @@ export function TimeBlock({
         )}
         style={{
           top: `${top}px`,
-          height: `${Math.max(height - 4, 20)}px`, // Account for margin
-          // Side-by-side overlap: column split into layout.columnCount
-          // lanes, item lives in lane N. 4px gutter on the leftmost
-          // lane preserves the previous `left-1 right-1` look when no
-          // overlap is happening.
+          height: `${Math.max(height - 4, 20)}px`,
           left: `calc(${(100 / layout.columnCount) * layout.lane}% + ${layout.lane === 0 ? "4px" : "1px"})`,
           width: `calc(${100 / layout.columnCount - COLUMN_GAP_PCT}% - ${layout.lane === 0 ? "4px" : "1px"})`,
           backgroundColor: colors.bg,
@@ -155,7 +157,7 @@ export function TimeBlock({
         onMouseDown={handleMouseDown}
         role="button"
         tabIndex={0}
-        aria-label={`Time block: ${block.title} from ${format(startTime, "h:mm a")} to ${format(endTime, "h:mm a")}`}
+        aria-label={`Time block: ${displayTitle} from ${format(startTime, "h:mm a")} to ${format(endTime, "h:mm a")}`}
       >
         {/* Top resize handle - Larger touch target on mobile (hidden when duration-locked) */}
         {canResize && (
@@ -163,8 +165,8 @@ export function TimeBlock({
             data-resize="top"
             className={cn(
               "absolute top-0 left-0 right-0 cursor-ns-resize hover:bg-black/10 rounded-t-sm",
-              "h-3 sm:h-2", // Larger on mobile for touch
-              "-mt-1 sm:mt-0" // Extend beyond block for easier touch
+              "h-3 sm:h-2",
+              "-mt-1 sm:mt-0"
             )}
             onMouseDown={handleTopResize}
           />
@@ -182,7 +184,7 @@ export function TimeBlock({
             "truncate font-medium text-foreground",
             isCompact ? "text-xs" : "text-sm"
           )}>
-            {block.title}
+            {displayTitle}
           </p>
 
           {/* Time range - muted text, hide if too compact */}
@@ -193,16 +195,20 @@ export function TimeBlock({
           )}
         </div>
 
-        {/* Bottom resize handle - Larger touch target on mobile (hidden when duration-locked) */}
+        {/* Bottom resize handle — also supports double-click for chained creation */}
         {canResize && (
           <div
             data-resize="bottom"
             className={cn(
               "absolute bottom-0 left-0 right-0 cursor-ns-resize hover:bg-black/10 rounded-b-sm",
-              "h-3 sm:h-2", // Larger on mobile for touch
-              "-mb-1 sm:mb-0" // Extend beyond block for easier touch
+              "h-3 sm:h-2",
+              "-mb-1 sm:mb-0"
             )}
             onMouseDown={handleBottomResize}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              onEndDoubleClick?.();
+            }}
           />
         )}
       </div>

@@ -327,6 +327,11 @@ timeBlocksRouter.patch('/:id', requireScopes('time-blocks:write'), zValidator('p
   const [existing] = await db.select().from(timeBlocks).where(and(eq(timeBlocks.id, id), eq(timeBlocks.userId, userId))).limit(1);
   if (!existing) throw new NotFoundError('Time block', id);
 
+  // Allow empty title when the block is a break (either existing or being set)
+  if (updates.title !== undefined && updates.title.trim().length === 0 && !(updates.isBreak ?? existing.isBreak)) {
+    throw new ValidationError('Title is required for non-break blocks', { title: ['Title is required'] });
+  }
+
   if (updates.taskId) {
     const [task] = await db.select().from(tasks).where(and(eq(tasks.id, updates.taskId), eq(tasks.userId, userId))).limit(1);
     if (!task) throw new NotFoundError('Task', updates.taskId);

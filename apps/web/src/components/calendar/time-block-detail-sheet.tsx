@@ -1,6 +1,6 @@
 import * as React from "react";
 import { format } from "date-fns";
-import { Trash2, Lock, Coffee } from "lucide-react";
+import { Trash2, Lock } from "lucide-react";
 import type { TimeBlock } from "@open-sunsama/types";
 import {
   useUpdateTimeBlock,
@@ -104,8 +104,6 @@ export function TimeBlockDetailSheet({
 
     const newEndTime = new Date(blockDate);
     if (isDurationLocked) {
-      // Duration lock: the end follows the start, preserving the
-      // current duration — editing the start effectively moves the block.
       const currentStart = new Date(timeBlock.startTime);
       const currentEnd = new Date(timeBlock.endTime);
       const lockedMins = Math.round(
@@ -163,7 +161,6 @@ export function TimeBlockDetailSheet({
     const [newStartHour, newStartMin] = startTime.split(":").map(Number);
     const [newEndHour, newEndMin] = endTime.split(":").map(Number);
 
-    // Check if times have changed
     const startChanged =
       newStartHour !== currentStartHour || newStartMin !== currentStartMin;
     const endChanged =
@@ -197,9 +194,15 @@ export function TimeBlockDetailSheet({
   const handleBreakChange = async (nextIsBreak: boolean) => {
     setIsBreak(nextIsBreak);
     if (timeBlock) {
+      // Auto-apply grey color when marking as break
+      const data: Record<string, unknown> = { isBreak: nextIsBreak };
+      if (nextIsBreak) {
+        data.color = "#9CA3AF";
+        setColor("#9CA3AF");
+      }
       await updateTimeBlock.mutateAsync({
         id: timeBlock.id,
-        data: { isBreak: nextIsBreak },
+        data,
       });
     }
   };
@@ -243,11 +246,13 @@ export function TimeBlockDetailSheet({
         </SheetHeader>
 
         <div className="flex-1 space-y-4 overflow-y-auto">
-          {/* Title */}
+          {/* Title + Break checkbox inline */}
           <TimeBlockTitleSection
             title={title}
             onChange={setTitle}
             onBlur={handleTitleBlur}
+            isBreak={isBreak}
+            onBreakChange={handleBreakChange}
           />
 
           {/* Time */}
@@ -261,7 +266,7 @@ export function TimeBlockDetailSheet({
             onBlur={handleTimeBlur}
           />
 
-          {/* Flags */}
+          {/* Flags — only Lock duration (Break is inline with title now) */}
           <div className="space-y-2">
             <label className="flex items-start gap-2.5 cursor-pointer select-none">
               <Checkbox
@@ -278,24 +283,6 @@ export function TimeBlockDetailSheet({
                 </span>
                 <span className="text-xs text-muted-foreground">
                   Resizing is disabled; moving keeps the duration.
-                </span>
-              </span>
-            </label>
-            <label className="flex items-start gap-2.5 cursor-pointer select-none">
-              <Checkbox
-                checked={isBreak}
-                onCheckedChange={(checked) =>
-                  handleBreakChange(checked === true)
-                }
-                className="mt-0.5"
-              />
-              <span className="flex flex-col">
-                <span className="flex items-center gap-1.5 text-sm">
-                  <Coffee className="h-3.5 w-3.5 text-muted-foreground" />
-                  Break
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  Schedule padding — doesn't count as a work block.
                 </span>
               </span>
             </label>

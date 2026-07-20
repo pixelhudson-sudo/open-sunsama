@@ -28,6 +28,7 @@ import {
   useTimeBlocksForDateRange,
   useCreateTimeBlock,
   useCascadeResizeTimeBlock,
+  useUpdateTimeBlock,
 } from "@/hooks";
 import { useAuth } from "@/hooks/useAuth";
 import { useSavePreferences } from "@/hooks/useUserPreferences";
@@ -39,6 +40,9 @@ import {
   useUpdateCalendarEvent,
 } from "@/hooks/useCalendars";
 import { useCalendarDnd } from "@/hooks/useCalendarDnd";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getApi } from "@/lib/api";
+import { templateKeys } from "@/lib/query-keys";
 import { Timeline } from "./timeline";
 import { MultiDayView } from "./multi-day-view";
 import { MonthView } from "./month-view";
@@ -65,7 +69,7 @@ const VIEW_MODE_STORAGE_KEY = "open_sunsama_calendar_view_mode";
  * Hours-view zoom: pixels per hour. 64 is the standard day-view scale;
  * the levels give 75% / 100% / 150% / 200%. Persisted across sessions.
  */
-const HOURS_ZOOM_LEVELS = [48, 64, 96, 128] as const;
+const HOURS_ZOOM_LEVELS = [48, 64, 74, 86, 106, 115, 128] as const;
 const DEFAULT_HOURS_ZOOM = 64;
 const HOURS_ZOOM_STORAGE_KEY = "open_sunsama_hours_zoom";
 const SCHEDULE_PANEL_STORAGE_KEY = "open_sunsama_hours_schedule_panel";
@@ -391,6 +395,91 @@ export function CalendarView({
   // Mutations
   const createTimeBlock = useCreateTimeBlock();
   const cascadeResizeTimeBlock = useCascadeResizeTimeBlock();
+  const updateTimeBlock = useUpdateTimeBlock();
+  const queryClient = useQueryClient();
+
+  // --- Schedule Templates ---
+  const { data: templates = [] } = useQuery({
+    queryKey: templateKeys.lists(),
+    queryFn: async () => {
+      const api = getApi();
+      return await api.scheduleTemplates.list();
+    },
+  });
+
+  const createTemplateMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const api = getApi();
+      const dayBlocks = dayTimeBlocks
+        .filter((b) => isSameDay(new Date(b.startTime), selectedDate))
+        .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+      const items = dayBlocks.map((b) => ({
+        title: b.title,
+        startTime: format(new Date(b.startTime), "HH:mm"),
+        endTime: format(new Date(b.endTime), "HH:mm"),
+        color: b.color,
+        isBreak: b.isBreak,
+        isDurationLocked: b.isDurationLocked,
+      }));
+      return api.scheduleTemplates.create({ name, items });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: templateKeys.lists() }),
+  });
+
+  const renameTemplateMutation = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const api = getApi();
+      return api.scheduleTemplates.update(id, { name });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: templateKeys.lists() }),
+  });
+
+  const handleSaveAsTemplate = React.useCallback(() => {
+    const name = window.prompt("Template name:");
+    if (name?.trim()) {
+      createTemplateMutation.mutate(name.trim());
+    }
+  }, [createTemplateMutation]);
+
+  const handleLoadTemplate = React.useCallback(async (templateId: string) => {
+    const api = getApi();
+    const template = await api.scheduleTemplates.get(templateId);
+    if (!template?.items) return;
+    const dateStr = format(selectedDate, "yyyy-MM-dd");
+    for (const item of template.items) {
+      const startTime = new Date(`${dateStr}T${item.startTime}:00`);
+      const endTime = new Date(`${dateStr}T${item.endTime}:00`);
+      createTimeBlock.mutate({
+        title: item.title || (item.isBreak ? "Break" : "Untitled"),
+        startTime,
+        endTime,
+        color: item.color ?? undefined,
+        isBreak: item.isBreak,
+        isDurationLocked: item.isDurationLocked,
+      });
+    }
+  }, [selectedDate, createTimeBlock]);
+
+  const handleRenameTemplate = React.useCallback((templateId: string) => {
+    const t = templates.find((t) => t.id === templateId);
+    const name = window.prompt("New name:", t?.name ?? "");
+    if (name?.trim()) {
+      renameTemplateMutation.mutate({ id: templateId, name: name.trim() });
+    }
+  }, [templates, renameTemplateMutation]);
+
+  const handleDownloadTemplate = React.useCallback(async (templateId: string) => {
+    const api = getApi();
+    const template = await api.scheduleTemplates.get(templateId);
+    if (!template) return;
+    const blob = new Blob([JSON.stringify(template, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${template.name.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, []);
 
   // Filter tasks that don't have a time block on this day
   const unscheduledTasks = React.useMemo(() => {
@@ -776,6 +865,11 @@ export function CalendarView({
         onPreviousDay={goToPreviousDay}
         onNextDay={goToNextDay}
         onToday={goToToday}
+        templates={templates}
+        onSaveAsTemplate={handleSaveAsTemplate}
+        onLoadTemplate={handleLoadTemplate}
+        onRenameTemplate={handleRenameTemplate}
+        onDownloadTemplate={handleDownloadTemplate}
         onAddBreak={() => {
           const dayBlocks = dayTimeBlocks.slice().sort(
             (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
@@ -876,6 +970,10 @@ export function CalendarView({
               onExternalEventDragStart={handleExternalEventDragStart}
               onExternalEventResizeStart={handleExternalEventResizeStart}
               externalEventCanEdit={externalEventCanEdit}
+              onBlockEndDoubleClick={(blockEnd) => {
+                const end = new Date(blockEnd.getTime() + 60 * 60 * 1000);
+                onTimeSlotClick?.(selectedDate, blockEnd, end);
+              }}
               {...(onBlockClick ? { onBlockClick } : {})}
               {...(onEditBlock ? { onEditBlock } : {})}
               {...(onViewTask ? { onViewTask } : {})}

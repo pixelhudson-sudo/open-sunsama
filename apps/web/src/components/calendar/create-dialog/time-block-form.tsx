@@ -1,5 +1,5 @@
 import * as React from "react";
-import { format } from "date-fns";
+import { format, addMinutes, differenceInMinutes } from "date-fns";
 import { ListTodo, Clock } from "lucide-react";
 import { useCreateTimeBlock, useTasks } from "@/hooks";
 import {
@@ -12,6 +12,7 @@ import {
 /**
  * Time block sub-form for the create dialog. Optionally links the
  * block to an existing unscheduled task on the same day.
+ * Includes a duration input that drives the end time.
  */
 export function TimeBlockForm({
   date,
@@ -31,6 +32,10 @@ export function TimeBlockForm({
   const [showTaskList, setShowTaskList] = React.useState(false);
   const [startTimeInput, setStartTimeInput] = React.useState(format(startTime, "HH:mm"));
   const [endTimeInput, setEndTimeInput] = React.useState(format(endTime, "HH:mm"));
+  const [durationInput, setDurationInput] = React.useState(() => {
+    const diff = differenceInMinutes(endTime, startTime);
+    return String(diff);
+  });
 
   const createTimeBlock = useCreateTimeBlock();
 
@@ -47,6 +52,8 @@ export function TimeBlockForm({
     setShowTaskList(false);
     setStartTimeInput(format(startTime, "HH:mm"));
     setEndTimeInput(format(endTime, "HH:mm"));
+    const diff = differenceInMinutes(endTime, startTime);
+    setDurationInput(String(diff));
   }, [date, startTime, endTime]);
 
   React.useEffect(() => {
@@ -62,6 +69,19 @@ export function TimeBlockForm({
     const d = new Date(date);
     d.setHours(hours ?? 0, mins ?? 0, 0, 0);
     return d;
+  };
+
+  // When duration changes, update end time
+  const handleDurationChange = (value: string) => {
+    setDurationInput(value);
+    const mins = parseInt(value, 10);
+    if (!isNaN(mins) && mins > 0) {
+      const start = buildTimeDate(startTimeInput);
+      if (start) {
+        const newEnd = addMinutes(start, mins);
+        setEndTimeInput(format(newEnd, "HH:mm"));
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -116,6 +136,18 @@ export function TimeBlockForm({
             onChange={(e) => setEndTimeInput(e.target.value)}
             className="h-9 w-28 text-sm"
           />
+        </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-xs text-muted-foreground">Duration:</Label>
+          <Input
+            type="number"
+            min={5}
+            max={480}
+            value={durationInput}
+            onChange={(e) => handleDurationChange(e.target.value)}
+            className="h-7 w-20 text-xs"
+          />
+          <span className="text-xs text-muted-foreground">min</span>
         </div>
       </div>
 

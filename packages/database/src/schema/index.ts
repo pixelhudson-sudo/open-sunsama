@@ -155,6 +155,12 @@ export type {
 } from "./calendar-events";
 
 export {
+  scheduleTemplates,
+  scheduleTemplatesRelations,
+} from "./schedule-templates";
+export type { ScheduleTemplate, NewScheduleTemplate } from "./schedule-templates";
+
+export {
   releases,
   insertReleaseSchema,
   selectReleaseSchema,

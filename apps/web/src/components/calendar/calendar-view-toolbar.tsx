@@ -1,34 +1,26 @@
 import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Coffee, Printer, ZoomIn, ZoomOut, PanelRightClose, PanelRightOpen } from "lucide-react";
-import { Button } from "@/components/ui";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Coffee, Printer, ZoomIn, ZoomOut, PanelRightClose, PanelRightOpen, FileDown } from "lucide-react";
+import { Button, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui";
 import type { TimeBlock, CalendarViewMode } from "@open-sunsama/types";
 import { cn } from "@/lib/utils";
 
+interface TemplateItem {
+  id: string;
+  name: string;
+}
+
 interface CalendarViewToolbarProps {
-  /**
-   * The user's anchor date — also what `Today` resets to. The button only
-   * highlights when today is within the visible range, not just when
-   * `selectedDate === today` (which would feel wrong on the week / month
-   * view where the user expects "Today" to mean "today is on screen").
-   */
   selectedDate: Date;
-  /**
-   * The full window the calendar is displaying. For "day" mode this is
-   * just the selected date; for "3-day" / "week" / "month" it's the
-   * range. Used to label the toolbar (e.g. "Aug 1 – 7" for a week).
-   */
   rangeStart: Date;
   rangeEnd: Date;
   viewMode: CalendarViewMode;
   onViewModeChange: (mode: CalendarViewMode) => void;
   timeBlocks: TimeBlock[];
-  /** Hours-view zoom controls (rendered only in hours mode) */
   zoomPercent?: number;
   canZoomIn?: boolean;
   canZoomOut?: boolean;
   onZoomIn?: () => void;
   onZoomOut?: () => void;
-  /** Hours-view schedule panel toggle (rendered only in hours mode) */
   schedulePanelOpen?: boolean;
   onToggleSchedulePanel?: () => void;
   onPreviousDay: () => void;
@@ -36,6 +28,12 @@ interface CalendarViewToolbarProps {
   onToday: () => void;
   onAddBreak?: () => void;
   onPrintSchedule?: () => void;
+  /** Template management */
+  templates?: TemplateItem[];
+  onSaveAsTemplate?: () => void;
+  onLoadTemplate?: (id: string) => void;
+  onRenameTemplate?: (id: string) => void;
+  onDownloadTemplate?: (id: string) => void;
   className?: string;
 }
 
@@ -68,7 +66,6 @@ function describeRange(
     };
   }
 
-  // 3-day / week — show the visible window.
   const sameMonth = rangeStart.getMonth() === rangeEnd.getMonth();
   const sameYear = rangeStart.getFullYear() === rangeEnd.getFullYear();
 
@@ -106,11 +103,12 @@ export function CalendarViewToolbar({
   onToday,
   onAddBreak,
   onPrintSchedule,
+  templates = [],
+  onSaveAsTemplate,
+  onLoadTemplate,
+  onRenameTemplate,
+  onDownloadTemplate,
 }: CalendarViewToolbarProps) {
-  // "Today" is highlighted when today's date falls anywhere in the visible
-  // range — for day view that collapses back to "selectedDate is today",
-  // but for week / month it correctly stays lit while the user navigates
-  // around the current week / month.
   const today = new Date();
   const todayInRange = isWithinInterval(today, {
     start: startOfDay(rangeStart),
@@ -165,7 +163,7 @@ export function CalendarViewToolbar({
       </div>
 
       <div className="flex items-center gap-2 justify-between sm:justify-end">
-        {/* View mode selector — segmented control */}
+        {/* View mode selector */}
         <div
           className="inline-flex items-center rounded-md border border-border/50 bg-muted/30 p-0.5"
           role="tablist"
@@ -235,8 +233,7 @@ export function CalendarViewToolbar({
           </Button>
         )}
 
-        {/* Block count badge — only on single-day views (per-day signal).
-            Breaks are schedule scaffolding, not work — excluded. */}
+        {/* Block count badge */}
         {(viewMode === "day" || viewMode === "hours") &&
           timeBlocks.filter((b) => !b.isBreak).length > 0 && (
           <span className="hidden sm:inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
@@ -245,8 +242,85 @@ export function CalendarViewToolbar({
           </span>
         )}
 
-        {/* Break & Print actions */}
+        {/* Templates dropdown + Break + Print */}
         <div className="flex items-center gap-1">
+          {/* Templates — shown in hours/day views */}
+          {(viewMode === "hours" || viewMode === "day") && onSaveAsTemplate && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 px-2.5 text-xs gap-1.5"
+                >
+                  <FileDown className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Templates</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[160px]">
+                <DropdownMenuItem onClick={onSaveAsTemplate}>
+                  Save as template…
+                </DropdownMenuItem>
+
+                {templates.length > 0 && (
+                  <>
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger>
+                        Load template
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        {templates.map((t) => (
+                          <DropdownMenuItem
+                            key={t.id}
+                            onClick={() => onLoadTemplate?.(t.id)}
+                          >
+                            {t.name}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+
+                    <DropdownMenuSeparator />
+
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger>
+                        Rename template
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        {templates.map((t) => (
+                          <DropdownMenuItem
+                            key={t.id}
+                            onClick={() => onRenameTemplate?.(t.id)}
+                          >
+                            {t.name}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+
+                    <DropdownMenuSeparator />
+
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger>
+                        Download template
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        {templates.map((t) => (
+                          <DropdownMenuItem
+                            key={t.id}
+                            onClick={() => onDownloadTemplate?.(t.id)}
+                          >
+                            {t.name}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
           <Button
             variant="outline"
             size="sm"

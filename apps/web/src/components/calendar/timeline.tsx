@@ -73,6 +73,8 @@ interface TimelineProps {
   onTimelineMouseUp?: () => void;
   onTimelineMouseLeave?: () => void;
   onTimeSlotClick?: (startTime: Date, endTime: Date) => void;
+  /** Double-click a block's bottom handle → create chained event at that block's end */
+  onBlockEndDoubleClick?: (blockEnd: Date) => void;
   className?: string;
 }
 
@@ -113,6 +115,7 @@ export function Timeline({
   onTimelineMouseUp,
   onTimelineMouseLeave,
   onTimeSlotClick,
+  onBlockEndDoubleClick,
   className,
 }: TimelineProps) {
   const scrollAreaRef = React.useRef<HTMLDivElement>(null);
@@ -488,6 +491,11 @@ export function Timeline({
                   onEditBlock={() => onEditBlock?.(block)}
                   onDragStart={(e) => onBlockDragStart?.(block, e)}
                   onResizeStart={(e, edge) => onBlockResizeStart?.(block, edge, e)}
+                  onEndDoubleClick={
+                    onBlockEndDoubleClick
+                      ? () => onBlockEndDoubleClick(new Date(block.endTime))
+                      : undefined
+                  }
                   onViewTask={onViewTask}
                   isDragging={dragState?.blockId === block.id}
                 />

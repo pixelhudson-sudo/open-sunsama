@@ -160,6 +160,14 @@ export type {
   UpdateCalendarRequest,
 } from "./calendar.js";
 
+// Schedule template types
+export type {
+  ScheduleTemplate,
+  ScheduleTemplateItem,
+  CreateScheduleTemplateInput,
+  UpdateScheduleTemplateInput,
+} from "./schedule-template.js";
+
 // Ideas types
 export type {
   IdeaBoard,
