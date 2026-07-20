@@ -49,7 +49,7 @@ import { Timeline } from "./timeline";
 import { MultiDayView } from "./multi-day-view";
 import { MonthView } from "./month-view";
 import { ScheduleTextPanel } from "./schedule-text-panel";
-import { UnscheduledTasksPanel } from "./unscheduled-tasks";
+import { AllTasksPanel } from "./all-tasks-panel";
 import { DragOverlay } from "./drag-overlay";
 import { CalendarViewToolbar } from "./calendar-view-toolbar";
 
@@ -1127,8 +1127,8 @@ export function CalendarView({
             read-mostly so the extra real estate goes to the calendar. */}
         {(viewMode === "day" || viewMode === "hours") && (
           <>
-            <UnscheduledTasksPanel
-              tasks={unscheduledTasks}
+            <AllTasksPanel
+              tasks={allTasks}
               isLoading={isLoading}
               scheduledDate={dateString}
               onTaskDragStart={handleTaskDragStart}

@@ -380,19 +380,29 @@ export function ScheduleTextPanel({
       {/* Title — click to edit */}
       <div className="border-b px-3 py-2.5">
         {editingTitle ? (
-          <input
+          <textarea
             autoFocus
-            className="w-full text-sm font-medium bg-transparent border-b border-primary/50 outline-none"
+            className="w-full text-sm font-medium bg-transparent border-b border-primary/50 outline-none resize-none overflow-hidden"
+            rows={1}
             value={customTitle}
             onChange={(e) => setCustomTitle(e.target.value)}
             onBlur={() => setEditingTitle(false)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") setEditingTitle(false);
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                setEditingTitle(false);
+              }
+            }}
+            ref={(el) => {
+              if (el) {
+                el.style.height = "auto";
+                el.style.height = el.scrollHeight + "px";
+              }
             }}
           />
         ) : (
           <h3
-            className="text-sm font-semibold text-foreground cursor-pointer hover:text-primary"
+            className="text-sm font-semibold text-foreground cursor-pointer hover:text-primary whitespace-pre-wrap"
             onClick={() => setEditingTitle(true)}
             title="Click to edit title"
           >
