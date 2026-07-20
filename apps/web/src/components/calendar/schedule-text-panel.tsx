@@ -73,7 +73,14 @@ function linesFromBlocks(blocks: TimeBlock[]): string[] {
     });
 }
 
-const timeRegex = /^(\d{1,2}:\d{2}\s*(?:am|pm)?)\s*/i;
+  const timeRegex = /^(\d{1,2}:\d{2}\s*(?:am|pm)?)\s*/i;
+
+const FINAL_MSG_HEIGHT_KEY = "open_sunsama_final_msg_height";
+
+function getStoredFinalMsgHeight(): number {
+  if (typeof window === "undefined") return 120;
+  return Number(window.localStorage.getItem(FINAL_MSG_HEIGHT_KEY)) || 120;
+}
 
 export function ScheduleTextPanel({
   timeBlocks,
@@ -93,6 +100,8 @@ export function ScheduleTextPanel({
   const [fontFamily, setFontFamily] = React.useState(getStoredFontFamily);
   const [fontSize, setFontSize] = React.useState(getStoredFontSize);
   const [finalMessage, setFinalMessage] = React.useState("");
+  const [finalMsgHeight, setFinalMsgHeight] = React.useState(getStoredFinalMsgHeight);
+  const [draggingMsgHeight, setDraggingMsgHeight] = React.useState(false);
   const updateTimeBlock = useUpdateTimeBlock();
   const cascadeResizeTimeBlock = useCascadeResizeTimeBlock();
 
@@ -220,38 +229,25 @@ export function ScheduleTextPanel({
     setFinalMessage(`${displayTitle}\n\n${lines.join("\n")}`);
   }, [displayTitle, lines]);
 
-  // Translate title for CN1/CN2
-  const translateTitle = React.useCallback(async (api: ReturnType<typeof getApi>, title: string) => {
-    try {
-      return await api.translate(title, "zh-TW");
-    } catch {
-      return title;
-    }
-  }, []);
-
-  // CN1 — full-schedule translation: title + original + translated blocks
+  // CN1 — original + blank + translated
   const handleCN1 = React.useCallback(async () => {
     setTranslating(true);
     try {
       const api = getApi();
-      const translatedTitle = await translateTitle(api, displayTitle);
       const fullText = lines.join("\n");
       if (!fullText) return;
       const translated = await api.translate(fullText, "zh-TW");
-      setFinalMessage(
-        `${displayTitle} ${translatedTitle}\n\n${fullText}\n\n${translated}`
-      );
+      setFinalMessage(`${fullText}\n\n${translated}`);
     } finally {
       setTranslating(false);
     }
-  }, [lines, displayTitle, translateTitle]);
+  }, [lines]);
 
-  // CN2 — per-line translation: timePrefix translatedTitle originalTitle
+  // CN2 — per-line: timePrefix translatedTitle originalTitle (no trailing repeat)
   const handleCN2 = React.useCallback(async () => {
     setTranslating(true);
     try {
       const api = getApi();
-      const translatedTitle = await translateTitle(api, displayTitle);
       const translatedLines = await Promise.all(
         lines.map(async (line) => {
           if (!line.trim()) return line;
@@ -262,18 +258,47 @@ export function ScheduleTextPanel({
           return `${timePrefix} ${translated} ${titlePart || ""}`.trim();
         })
       );
-      setFinalMessage(
-        `${displayTitle} ${translatedTitle}\n\n${translatedLines.join("\n")}\n\n${lines.join("\n")}`
-      );
+      setFinalMessage(translatedLines.join("\n"));
     } finally {
       setTranslating(false);
     }
-  }, [lines, displayTitle, translateTitle]);
+  }, [lines]);
 
   // COPY — copy final message to clipboard
   const handleCopy = React.useCallback(() => {
     navigator.clipboard.writeText(finalMessage).catch(() => {});
   }, [finalMessage]);
+
+  // CLEAR — clear final message
+  const handleClear = React.useCallback(() => {
+    setFinalMessage("");
+  }, []);
+
+  // Final message height drag
+  const handleFinalMsgHeightMouseDown = React.useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setDraggingMsgHeight(true);
+  }, []);
+
+  React.useEffect(() => {
+    if (!draggingMsgHeight) return;
+    const handleMove = (e: MouseEvent) => {
+      const container = document.getElementById("final-msg-container");
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const newHeight = e.clientY - rect.top;
+      const clamped = Math.max(60, Math.min(600, newHeight));
+      setFinalMsgHeight(clamped);
+      localStorage.setItem(FINAL_MSG_HEIGHT_KEY, String(clamped));
+    };
+    const handleUp = () => setDraggingMsgHeight(false);
+    document.addEventListener("mousemove", handleMove);
+    document.addEventListener("mouseup", handleUp);
+    return () => {
+      document.removeEventListener("mousemove", handleMove);
+      document.removeEventListener("mouseup", handleUp);
+    };
+  }, [draggingMsgHeight]);
 
   return (
     <div
@@ -283,7 +308,7 @@ export function ScheduleTextPanel({
       )}
       style={{ width: panelWidth }}
     >
-      {/* Drag handle */}
+      {/* Panel width drag handle */}
       <div
         className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/30 z-10"
         onMouseDown={handleMouseDown}
@@ -370,21 +395,9 @@ export function ScheduleTextPanel({
         )}
       </div>
 
-      {/* Final message box */}
-      <div className="border-t px-3 py-2">
-        <Label className="text-[10px] text-muted-foreground">Final message</Label>
-        <textarea
-          className="w-full h-20 text-xs bg-transparent border border-border rounded px-2 py-1 resize-none mt-1"
-          style={{ fontFamily, fontSize}}
-          value={finalMessage}
-          onChange={(e) => setFinalMessage(e.target.value)}
-          placeholder="EN/CN1/CN2 output appears here..."
-        />
-      </div>
-
-      {/* Bottom actions */}
-      <div className="border-t px-3 py-2 space-y-2">
-        {editingText && (
+      {/* Update button (only in edit mode, above final message) */}
+      {editingText && (
+        <div className="border-t px-3 py-1.5">
           <Button
             size="sm"
             className="w-full h-7 text-xs"
@@ -393,8 +406,49 @@ export function ScheduleTextPanel({
           >
             {updateTimeBlock.isPending ? "Saving..." : "Update"}
           </Button>
-        )}
+        </div>
+      )}
 
+      {/* Final message box with height resize */}
+      <div id="final-msg-container" className="border-t px-3 py-2 relative">
+        <Label className="text-[10px] text-muted-foreground">Final message</Label>
+        <div className="relative mt-1">
+          <textarea
+            className="w-full text-xs bg-transparent border border-border rounded px-2 py-1 resize-none pr-14"
+            style={{ fontFamily, fontSize, height: finalMsgHeight }}
+            value={finalMessage}
+            onChange={(e) => setFinalMessage(e.target.value)}
+            placeholder="EN/CN1/CN2 output appears here..."
+          />
+          {/* Copy + Clear buttons inside textarea bottom-right */}
+          <div className="absolute bottom-2 right-2 flex gap-1">
+            <button
+              className="text-[10px] px-1.5 py-0.5 rounded bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30"
+              onClick={handleCopy}
+              disabled={!finalMessage}
+              title="Copy"
+            >
+              Copy
+            </button>
+            <button
+              className="text-[10px] px-1.5 py-0.5 rounded bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30"
+              onClick={handleClear}
+              disabled={!finalMessage}
+              title="Clear"
+            >
+              Clear
+            </button>
+          </div>
+          {/* Height resize handle */}
+          <div
+            className="absolute bottom-0 left-0 right-0 h-1.5 cursor-row-resize hover:bg-primary/30"
+            onMouseDown={handleFinalMsgHeightMouseDown}
+          />
+        </div>
+      </div>
+
+      {/* Bottom actions */}
+      <div className="border-t px-3 py-2">
         <div className="grid grid-cols-4 gap-1">
           <Button
             variant="outline"
@@ -410,9 +464,19 @@ export function ScheduleTextPanel({
             variant="outline"
             size="sm"
             className="h-7 text-[10px] px-0"
+            onClick={handleCopy}
+            disabled={!finalMessage}
+            title="Copy final message"
+          >
+            COPY
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-[10px] px-0"
             onClick={handleCN1}
             disabled={translating || lines.length === 0}
-            title="Full translation with original"
+            title="Original + blank + translated"
           >
             CN1
           </Button>
@@ -425,16 +489,6 @@ export function ScheduleTextPanel({
             title="Per-line translated prefix"
           >
             CN2
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-[10px] px-0"
-            onClick={handleCopy}
-            disabled={!finalMessage}
-            title="Copy final message"
-          >
-            COPY
           </Button>
         </div>
       </div>

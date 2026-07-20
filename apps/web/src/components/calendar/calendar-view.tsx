@@ -43,6 +43,7 @@ import { useCalendarDnd } from "@/hooks/useCalendarDnd";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getApi } from "@/lib/api";
 import { templateKeys } from "@/lib/query-keys";
+import { toast } from "@/hooks/use-toast";
 import { Timeline } from "./timeline";
 import { MultiDayView } from "./multi-day-view";
 import { MonthView } from "./month-view";
@@ -409,6 +410,7 @@ export function CalendarView({
       const api = getApi();
       return await api.scheduleTemplates.list();
     },
+    throwOnError: false,
   });
 
   const createTemplateMutation = useMutation({
@@ -446,20 +448,35 @@ export function CalendarView({
   }, [createTemplateMutation]);
 
   const handleLoadTemplate = React.useCallback(async (templateId: string) => {
-    const api = getApi();
-    const template = await api.scheduleTemplates.get(templateId);
-    if (!template?.items) return;
-    const dateStr = format(selectedDate, "yyyy-MM-dd");
-    for (const item of template.items) {
-      const startTime = new Date(`${dateStr}T${item.startTime}:00`);
-      const endTime = new Date(`${dateStr}T${item.endTime}:00`);
-      createTimeBlock.mutate({
-        title: item.title || (item.isBreak ? "Break" : "Untitled"),
-        startTime,
-        endTime,
-        color: item.color ?? undefined,
-        isBreak: item.isBreak,
-        isDurationLocked: item.isDurationLocked,
+    try {
+      const api = getApi();
+      const template = await api.scheduleTemplates.get(templateId);
+      if (!template?.items) {
+        toast({ variant: "destructive", title: "Template is empty" });
+        return;
+      }
+      const dateStr = format(selectedDate, "yyyy-MM-dd");
+      let loadedCount = 0;
+      for (const item of template.items) {
+        const startTime = new Date(`${dateStr}T${item.startTime}:00`);
+        const endTime = new Date(`${dateStr}T${item.endTime}:00`);
+        if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) continue;
+        createTimeBlock.mutate({
+          title: item.title || (item.isBreak ? "Break" : "Untitled"),
+          startTime,
+          endTime,
+          color: item.color ?? undefined,
+          isBreak: item.isBreak,
+          isDurationLocked: item.isDurationLocked,
+        });
+        loadedCount++;
+      }
+      toast({ title: `Loaded ${loadedCount} blocks from template` });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Failed to load template",
+        description: err instanceof Error ? err.message : "Unknown error",
       });
     }
   }, [selectedDate, createTimeBlock]);
