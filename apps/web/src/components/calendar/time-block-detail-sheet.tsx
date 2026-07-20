@@ -263,15 +263,12 @@ export function TimeBlockDetailSheet({
             minutes={durationMins}
             onChange={(mins) => {
               if (mins <= 0 || !timeBlock) return;
-              const start = new Date(timeBlock.startTime);
+              const [h, m] = startTime.split(":").map(Number);
+              const blockDate = new Date(timeBlock.startTime);
+              const start = new Date(blockDate);
+              start.setHours(h ?? 0, m ?? 0, 0, 0);
               const newEnd = new Date(start.getTime() + mins * 60000);
-              const newEndStr = format(newEnd, "HH:mm");
-              setEndTime(newEndStr);
-              cascadeResizeTimeBlock.mutate({
-                id: timeBlock.id,
-                startTime: start,
-                endTime: newEnd,
-              });
+              setEndTime(format(newEnd, "HH:mm"));
             }}
             onBlur={handleTimeBlur}
           />
