@@ -1,12 +1,12 @@
 import * as React from "react";
-import { ListTodo, GripVertical } from "lucide-react";
+import { ListTodo, GripVertical, Pencil, Plus } from "lucide-react";
 import type { Task } from "@open-sunsama/types";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui";
-import { useCompleteTask } from "@/hooks/useTasks";
+import { useCompleteTask, useCreateTask } from "@/hooks/useTasks";
 import { AddTaskInline } from "@/components/kanban/add-task-inline";
 import { TaskContextMenu } from "@/components/kanban/task-context-menu";
-import { PriorityManager, getPriorityDefs, savePriorityDefs, usePriorityDefs, type PriorityDef } from "./priority-manager";
+import { PriorityManager, usePriorityDefs, type PriorityDef } from "./priority-manager";
 import { MobileUnscheduledSheet } from "./mobile-unscheduled-sheet";
 
 const FONT_KEY = "open_sunsama_tasks_font";
@@ -16,10 +16,19 @@ const FONT_OPTIONS = [
   { label: "System", value: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" },
   { label: "Mono", value: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" },
   { label: "Sans", value: "ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif" },
-  { label: "Compact", value: "Inter, -apple-system, BlinkMacSystemFont, sans-serif" },
+  { label: "Inter", value: "Inter, -apple-system, BlinkMacSystemFont, sans-serif" },
+  { label: "Arial", value: "Arial, Helvetica, sans-serif" },
+  { label: "Helvetica", value: "Helvetica, Arial, sans-serif" },
+  { label: "Times", value: "'Times New Roman', Times, serif" },
+  { label: "Courier", value: "'Courier New', Courier, monospace" },
+  { label: "Verdana", value: "Verdana, Geneva, sans-serif" },
+  { label: "Trebuchet", value: "'Trebuchet MS', 'Lucida Sans Unicode', sans-serif" },
+  { label: "Georgia", value: "Georgia, serif" },
+  { label: "Palatino", value: "'Palatino Linotype', 'Book Antiqua', Palatino, serif" },
+  { label: "Calibri", value: "Calibri, Candara, Segoe, 'Segoe UI', sans-serif" },
 ];
 
-const SIZE_OPTIONS = [10, 11, 12, 13];
+const SIZE_OPTIONS = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24];
 
 interface AllTasksPanelProps {
   tasks: Task[];
@@ -40,8 +49,9 @@ export function AllTasksPanel({
 }: AllTasksPanelProps) {
   const [space, setSpace] = React.useState<"all" | "unscheduled">("all");
   const completeTask = useCompleteTask();
+  const createTask = useCreateTask();
   const [priorityDefs, setPriorityDefs] = usePriorityDefs();
-  const [dndPriorityId, setDndPriorityId] = React.useState<string | null>(null);
+  const [showPriorityMgr, setShowPriorityMgr] = React.useState(false);
 
   const fontFamily = React.useMemo(() => {
     if (typeof window === "undefined") return FONT_OPTIONS[0]!.value;
@@ -49,8 +59,8 @@ export function AllTasksPanel({
   }, []);
   const [font, setFont] = React.useState(fontFamily);
   const fontSize = React.useMemo(() => {
-    if (typeof window === "undefined") return 11;
-    return Number(localStorage.getItem(SIZE_KEY)) || 11;
+    if (typeof window === "undefined") return SIZE_OPTIONS[2]!;
+    return Number(localStorage.getItem(SIZE_KEY)) || SIZE_OPTIONS[2]!;
   }, []);
   const [size, setSize] = React.useState(fontSize);
 
@@ -61,7 +71,6 @@ export function AllTasksPanel({
     return tasks;
   }, [tasks, space, scheduledDate]);
 
-  // Group by priority
   const grouped = React.useMemo(() => {
     const groups = new Map<string, Task[]>();
     const sortedDefs = [...priorityDefs].sort((a, b) => a.order - b.order);
@@ -101,14 +110,21 @@ export function AllTasksPanel({
     defs.splice(toIdx, 0, moved);
     defs.forEach((d, i) => (d.order = i));
     setPriorityDefs(defs);
-    setDndPriorityId(null);
+  };
+
+  const handleAddTaskWithPriority = (priorityId: string, afterTaskId?: string) => {
+    const def = priorityDefs.find((d) => d.id === priorityId);
+    createTask.mutate({
+      title: "",
+      priority: priorityId as any,
+      scheduledDate,
+    });
   };
 
   const taskCount = filteredTasks.length;
 
   const panelContent = (
     <>
-      {/* Header */}
       <div className="flex items-center justify-between border-b px-3 py-2">
         <div className="flex items-center gap-2">
           <ListTodo className="h-4 w-4 text-muted-foreground" />
@@ -128,7 +144,6 @@ export function AllTasksPanel({
         <AddTaskInline scheduledDate={scheduledDate} compact />
       </div>
 
-      {/* Font + Priority controls */}
       <div className="border-b px-3 py-1.5 flex items-center gap-1.5">
         <select
           className="text-[10px] bg-transparent border border-border rounded px-1 py-0.5 flex-1 min-w-0"
@@ -140,7 +155,7 @@ export function AllTasksPanel({
           ))}
         </select>
         <select
-          className="text-[10px] bg-transparent border border-border rounded px-1 py-0.5 w-10"
+          className="text-[10px] bg-transparent border border-border rounded px-1 py-0.5 w-12"
           value={size}
           onChange={(e) => setSizeAndStore(Number(e.target.value))}
         >
@@ -155,7 +170,6 @@ export function AllTasksPanel({
         </PriorityManager>
       </div>
 
-      {/* Task List */}
       <ScrollArea className="flex-1">
         <div className="p-1.5 space-y-0.5">
           {isLoading ? (
@@ -174,60 +188,89 @@ export function AllTasksPanel({
               </p>
             </div>
           ) : (
-            grouped.sortedDefs.map((def) => {
-              const groupTasks = grouped.groups.get(def.id) || [];
-              if (groupTasks.length === 0 && space !== "all") return null;
-              return (
-                <div key={def.id}>
-                  {/* Priority header */}
-                  <div
-                    className={cn(
-                      "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium cursor-grab active:cursor-grabbing select-none",
-                      groupTasks.length === 0 && "opacity-40"
-                    )}
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData("priority-id", def.id);
-                      setDndPriorityId(def.id);
-                    }}
-                    onDragOver={(e) => { e.preventDefault(); }}
-                    onDrop={(e) => handlePriorityDrop(def.id, e)}
-                    onDragEnd={() => setDndPriorityId(null)}
-                  >
-                    <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
-                    <span className="text-xs">{def.emoji}</span>
-                    <span style={{ color: def.color }}>{def.label}</span>
-                    <span className="text-muted-foreground ml-auto">{groupTasks.length}</span>
-                  </div>
-
-                  {/* Tasks in this priority */}
-                  {groupTasks.map((task) => (
-                    <TaskContextMenu
-                      key={task.id}
-                      task={task}
-                      onEdit={() => onTaskClick?.(task)}
+            grouped.sortedDefs
+              .filter((def) => {
+                const groupTasks = grouped.groups.get(def.id) || [];
+                return groupTasks.length > 0 || space === "all";
+              })
+              .map((def) => {
+                const groupTasks = grouped.groups.get(def.id) || [];
+                const prioritySize = Math.max(def.size || 14, 12);
+                return (
+                  <div key={def.id}>
+                    {/* Priority header — bigger, with edit + add icons */}
+                    <div
+                      className={cn(
+                        "flex items-center gap-1.5 px-2 py-1.5 rounded cursor-grab active:cursor-grabbing select-none group",
+                        groupTasks.length === 0 && "opacity-40"
+                      )}
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData("priority-id", def.id);
+                      }}
+                      onDragOver={(e) => { e.preventDefault(); }}
+                      onDrop={(e) => handlePriorityDrop(def.id, e)}
                     >
-                      <div
-                        className="cursor-grab active:cursor-grabbing"
-                        onMouseDown={(e) => onTaskDragStart?.(task, e)}
-                      >
-                        <CompactTaskCard
-                          task={task}
-                          priorityDef={def}
-                          onToggleComplete={(e) => {
-                            e.stopPropagation();
-                            completeTask.mutate({ id: task.id, completed: !task.completedAt });
-                          }}
-                          onClick={() => onTaskClick?.(task)}
-                          font={font}
-                          size={size}
-                        />
+                      <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span style={{ fontSize: prioritySize + 4 }}>{def.emoji}</span>
+                      <span className="font-bold" style={{ color: def.color, fontSize: prioritySize }}>
+                        {def.label}
+                      </span>
+                      <span className="text-xs text-muted-foreground/50 ml-1">{groupTasks.length}</span>
+                      <div className="ml-auto flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <PriorityManager defs={priorityDefs} onChange={setPriorityDefs}>
+                          <button className="p-1 rounded hover:bg-muted" title="Edit priority">
+                            <Pencil className="h-3 w-3 text-muted-foreground" />
+                          </button>
+                        </PriorityManager>
+                        <button
+                          className="p-1 rounded hover:bg-muted"
+                          title="Add task with this priority"
+                          onClick={() => handleAddTaskWithPriority(def.id)}
+                        >
+                          <Plus className="h-3 w-3 text-muted-foreground" />
+                        </button>
                       </div>
-                    </TaskContextMenu>
-                  ))}
-                </div>
-              );
-            })
+                    </div>
+
+                    {/* Tasks in this priority */}
+                    {groupTasks.map((task) => (
+                      <TaskContextMenu
+                        key={task.id}
+                        task={task}
+                        onEdit={() => onTaskClick?.(task)}
+                      >
+                        <div
+                          className="cursor-grab active:cursor-grabbing group/task relative"
+                          onMouseDown={(e) => onTaskDragStart?.(task, e)}
+                        >
+                          <CompactTaskCard
+                            task={task}
+                            priorityDef={def}
+                            onToggleComplete={(e) => {
+                              e.stopPropagation();
+                              completeTask.mutate({ id: task.id, completed: !task.completedAt });
+                            }}
+                            onClick={() => onTaskClick?.(task)}
+                            font={font}
+                            size={size}
+                          />
+                          <button
+                            className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/task:opacity-100 p-1 rounded hover:bg-muted transition-opacity"
+                            title="Add task below with same priority"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAddTaskWithPriority(def.id, task.id);
+                            }}
+                          >
+                            <Plus className="h-2.5 w-2.5 text-muted-foreground" />
+                          </button>
+                        </div>
+                      </TaskContextMenu>
+                    ))}
+                  </div>
+                );
+              })
           )}
         </div>
       </ScrollArea>
@@ -273,13 +316,11 @@ function CompactTaskCard({
     <div
       className={cn(
         "group flex items-center gap-1.5 rounded px-2 py-1 transition-colors",
-        "hover:bg-accent/30 cursor-pointer",
-        task.completedAt && "opacity-50"
+        "hover:bg-accent/30 cursor-pointer"
       )}
       onClick={onClick}
       style={{ fontFamily: font, fontSize: size }}
     >
-      {/* Circle checkbox */}
       <div
         className={cn(
           "h-3 w-3 shrink-0 rounded-full border cursor-pointer flex items-center justify-center transition-colors",
@@ -289,9 +330,7 @@ function CompactTaskCard({
         )}
         onClick={onToggleComplete}
       />
-      {/* Priority emoji */}
       <span className="text-[10px] shrink-0 leading-none">{priorityDef.emoji}</span>
-      {/* Title */}
       <span
         className={cn(
           "flex-1 min-w-0 truncate leading-tight",

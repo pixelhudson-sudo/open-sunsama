@@ -162,7 +162,7 @@ export function useCalendarDnd(
 
       switch (dragState.type) {
         case "task-to-timeline": {
-          const duration = dragState.task?.estimatedMins ?? 60;
+          const duration = 20;
           const preview = calculateTaskDropPreview(
             relativeY,
             selectedDate,
