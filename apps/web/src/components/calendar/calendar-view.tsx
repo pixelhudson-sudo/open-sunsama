@@ -413,6 +413,7 @@ export function CalendarView({
       const result = await api.scheduleTemplates.list();
       return result;
     },
+    enabled: !!user,
     retry: 2,
     retryDelay: 1000,
   });
