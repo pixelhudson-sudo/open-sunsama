@@ -410,8 +410,11 @@ export function CalendarView({
     queryKey: templateKeys.lists(),
     queryFn: async () => {
       const api = getApi();
-      return await api.scheduleTemplates.list();
+      const result = await api.scheduleTemplates.list();
+      return result;
     },
+    retry: 2,
+    retryDelay: 1000,
   });
 
   const createTemplateMutation = useMutation({

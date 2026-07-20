@@ -156,7 +156,12 @@ export function QuickCreatePopup({
           <DialogTitle>New time block</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} onKeyDown={(e) => {
+          if (e.shiftKey && e.key === "Enter") {
+            e.preventDefault();
+            handleNextBlock();
+          }
+        }} className="space-y-4">
           {/* Title */}
           <div className="space-y-1.5">
             <Input

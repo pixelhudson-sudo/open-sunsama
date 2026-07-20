@@ -257,64 +257,59 @@ export function CalendarViewToolbar({
                   <span className="hidden sm:inline">Templates</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-[160px]">
+              <DropdownMenuContent align="end" className="min-w-[180px]">
+                {templates.length > 0 && (
+                  <DropdownMenuLabel className="text-[10px] uppercase tracking-wider">
+                    {templates.length} template{templates.length !== 1 ? "s" : ""}
+                  </DropdownMenuLabel>
+                )}
                 <DropdownMenuItem onClick={onSaveAsTemplate}>
                   Save as template…
                 </DropdownMenuItem>
 
                 {templates.length > 0 && (
                   <>
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger>
-                        Load template
-                      </DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent>
-                        {templates.map((t) => (
-                          <DropdownMenuItem
-                            key={t.id}
-                            onClick={() => onLoadTemplate?.(t.id)}
-                          >
-                            {t.name}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuSubContent>
-                    </DropdownMenuSub>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      Load
+                    </DropdownMenuLabel>
+                    {templates.map((t) => (
+                      <DropdownMenuItem
+                        key={t.id}
+                        onClick={() => onLoadTemplate?.(t.id)}
+                        className="pl-6 text-xs"
+                      >
+                        {t.name}
+                      </DropdownMenuItem>
+                    ))}
 
                     <DropdownMenuSeparator />
-
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger>
-                        Rename template
-                      </DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent>
-                        {templates.map((t) => (
-                          <DropdownMenuItem
-                            key={t.id}
-                            onClick={() => onRenameTemplate?.(t.id)}
-                          >
-                            {t.name}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuSubContent>
-                    </DropdownMenuSub>
+                    <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      Rename
+                    </DropdownMenuLabel>
+                    {templates.map((t) => (
+                      <DropdownMenuItem
+                        key={t.id}
+                        onClick={() => onRenameTemplate?.(t.id)}
+                        className="pl-6 text-xs"
+                      >
+                        {t.name}
+                      </DropdownMenuItem>
+                    ))}
 
                     <DropdownMenuSeparator />
-
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger>
-                        Download template
-                      </DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent>
-                        {templates.map((t) => (
-                          <DropdownMenuItem
-                            key={t.id}
-                            onClick={() => onDownloadTemplate?.(t.id)}
-                          >
-                            {t.name}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuSubContent>
-                    </DropdownMenuSub>
+                    <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      Download
+                    </DropdownMenuLabel>
+                    {templates.map((t) => (
+                      <DropdownMenuItem
+                        key={t.id}
+                        onClick={() => onDownloadTemplate?.(t.id)}
+                        className="pl-6 text-xs"
+                      >
+                        {t.name}
+                      </DropdownMenuItem>
+                    ))}
                   </>
                 )}
               </DropdownMenuContent>

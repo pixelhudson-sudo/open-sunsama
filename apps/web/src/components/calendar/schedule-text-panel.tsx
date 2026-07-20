@@ -270,7 +270,7 @@ export function ScheduleTextPanel({
           return `${timePrefix} ${translated} ${titlePart || ""}`.trim();
         })
       );
-      setFinalMessage(`${translatedTitle}\n\n${translatedLines.join("\n")}`);
+      setFinalMessage(`${displayTitle} ${translatedTitle}\n\n${translatedLines.join("\n")}`);
     } finally {
       setTranslating(false);
     }
