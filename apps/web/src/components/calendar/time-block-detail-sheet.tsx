@@ -96,7 +96,6 @@ export function TimeBlockDetailSheet({
   const handleTimeSave = async () => {
     if (!timeBlock) return;
 
-    // Parse the time inputs back to full Date objects
     const blockDate = new Date(timeBlock.startTime);
     const [startHour, startMin] = startTime.split(":").map(Number);
     const [endHour, endMin] = endTime.split(":").map(Number);
@@ -104,22 +103,26 @@ export function TimeBlockDetailSheet({
     const newStartTime = new Date(blockDate);
     newStartTime.setHours(startHour ?? 0, startMin ?? 0, 0, 0);
 
-    const newEndTime = new Date(blockDate);
-    if (isDurationLocked) {
-      const currentStart = new Date(timeBlock.startTime);
-      const currentEnd = new Date(timeBlock.endTime);
-      const lockedMins = Math.round(
-        (currentEnd.getTime() - currentStart.getTime()) / 60000
-      );
-      newEndTime.setTime(newStartTime.getTime() + lockedMins * 60000);
+    const currentStart = new Date(timeBlock.startTime);
+    const currentEnd = new Date(timeBlock.endTime);
+    const currentDurationMins = Math.round(
+      (currentEnd.getTime() - currentStart.getTime()) / 60000
+    );
+
+    const startChanged =
+      newStartTime.getTime() !== currentStart.getTime();
+
+    let newEndTime: Date;
+    if (isDurationLocked || startChanged) {
+      // Locked or start changed → preserve duration
+      newEndTime = new Date(newStartTime.getTime() + currentDurationMins * 60000);
       setEndTime(format(newEndTime, "HH:mm"));
     } else {
+      // Only end changed → use provided value
+      newEndTime = new Date(blockDate);
       newEndTime.setHours(endHour ?? 0, endMin ?? 0, 0, 0);
     }
 
-    // Only cascade if the times actually changed
-    const currentStart = new Date(timeBlock.startTime);
-    const currentEnd = new Date(timeBlock.endTime);
     const timeChanged =
       newStartTime.getTime() !== currentStart.getTime() ||
       newEndTime.getTime() !== currentEnd.getTime();

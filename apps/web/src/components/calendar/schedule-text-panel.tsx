@@ -287,10 +287,16 @@ export function ScheduleTextPanel({
       .catch(() => {});
   }, [finalMessage]);
 
-  // CLEAR — clear final message
   const handleClear = React.useCallback(() => {
     setFinalMessage("");
   }, []);
+
+  const handleRefreshText = React.useCallback(() => {
+    setEditLines(lines.join("\n"));
+    if (editingText) {
+      toast({ title: "Text refreshed from schedule" });
+    }
+  }, [lines, editingText]);
 
   // Convert — auto-detect direction Chinese ↔ English
   const handleConvert = React.useCallback(async () => {
@@ -438,6 +444,13 @@ export function ScheduleTextPanel({
             <option key={s} value={s}>{s}px</option>
           ))}
         </select>
+        <button
+          className="text-[10px] px-1.5 py-0.5 rounded border border-border hover:bg-muted shrink-0"
+          onClick={handleRefreshText}
+          title="Refresh text from schedule"
+        >
+          ⟳
+        </button>
       </div>
 
       {/* Schedule text — editable */}
