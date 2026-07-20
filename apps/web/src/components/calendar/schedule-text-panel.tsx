@@ -4,6 +4,7 @@ import type { TimeBlock } from "@open-sunsama/types";
 import { cn } from "@/lib/utils";
 import { getApi } from "@/lib/api";
 import { useUpdateTimeBlock, useCascadeResizeTimeBlock } from "@/hooks";
+import { toast } from "@/hooks/use-toast";
 import { Button, Input, Label } from "@/components/ui";
 
 interface ScheduleTextPanelProps {
@@ -224,30 +225,41 @@ export function ScheduleTextPanel({
     };
   }, [isDragging]);
 
+  // Translate title helper
+  const translateTitle = React.useCallback(async (api: ReturnType<typeof getApi>, title: string) => {
+    try {
+      return await api.translate(title, "zh-TW");
+    } catch {
+      return title;
+    }
+  }, []);
+
   // EN — display English-only schedule in final message box
   const handleEN = React.useCallback(() => {
     setFinalMessage(`${displayTitle}\n\n${lines.join("\n")}`);
   }, [displayTitle, lines]);
 
-  // CN1 — original + blank + translated
+  // CN1 — title (orig + trans) + original + blank + translated
   const handleCN1 = React.useCallback(async () => {
     setTranslating(true);
     try {
       const api = getApi();
+      const translatedTitle = await translateTitle(api, displayTitle);
       const fullText = lines.join("\n");
       if (!fullText) return;
       const translated = await api.translate(fullText, "zh-TW");
-      setFinalMessage(`${fullText}\n\n${translated}`);
+      setFinalMessage(`${displayTitle} ${translatedTitle}\n\n${fullText}\n\n${translated}`);
     } finally {
       setTranslating(false);
     }
-  }, [lines]);
+  }, [lines, displayTitle, translateTitle]);
 
-  // CN2 — per-line: timePrefix translatedTitle originalTitle (no trailing repeat)
+  // CN2 — translated title + per-line: timePrefix translatedTitle originalTitle
   const handleCN2 = React.useCallback(async () => {
     setTranslating(true);
     try {
       const api = getApi();
+      const translatedTitle = await translateTitle(api, displayTitle);
       const translatedLines = await Promise.all(
         lines.map(async (line) => {
           if (!line.trim()) return line;
@@ -258,15 +270,19 @@ export function ScheduleTextPanel({
           return `${timePrefix} ${translated} ${titlePart || ""}`.trim();
         })
       );
-      setFinalMessage(translatedLines.join("\n"));
+      setFinalMessage(`${translatedTitle}\n\n${translatedLines.join("\n")}`);
     } finally {
       setTranslating(false);
     }
-  }, [lines]);
+  }, [lines, displayTitle, translateTitle]);
 
-  // COPY — copy final message to clipboard
+  // COPY — copy with 3-second confirmation toast
   const handleCopy = React.useCallback(() => {
-    navigator.clipboard.writeText(finalMessage).catch(() => {});
+    navigator.clipboard.writeText(finalMessage)
+      .then(() => {
+        toast({ title: "Copied to clipboard" });
+      })
+      .catch(() => {});
   }, [finalMessage]);
 
   // CLEAR — clear final message

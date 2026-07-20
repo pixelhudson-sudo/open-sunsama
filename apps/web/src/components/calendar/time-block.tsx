@@ -8,6 +8,7 @@ import {
 } from "@/hooks/useCalendarDnd";
 import { TimeBlockContextMenu } from "./time-block-context-menu";
 import type { LayoutResult } from "./event-layout";
+import { X } from "lucide-react";
 
 const COLUMN_GAP_PCT = 1; // gap between side-by-side overlapping items
 
@@ -23,6 +24,7 @@ interface TimeBlockProps {
   layout?: LayoutResult;
   onClick?: () => void;
   onEditBlock?: () => void;
+  onDelete?: (blockId: string) => void;
   onDragStart?: (e: React.MouseEvent) => void;
   onResizeStart?: (e: React.MouseEvent, edge: "top" | "bottom") => void;
   /** Click the bottom resize handle → open quick-create popup */
@@ -78,6 +80,7 @@ export function TimeBlock({
   layout = { lane: 0, columnCount: 1 },
   onClick,
   onEditBlock,
+  onDelete,
   onDragStart,
   onResizeStart,
   onEndClick,
@@ -135,7 +138,7 @@ export function TimeBlock({
       <div
         data-time-block
         className={cn(
-          "absolute z-10 my-0.5 rounded-md border-l-[3px] transition-all select-none",
+          "group absolute z-10 my-0.5 rounded-md border-l-[3px] transition-all select-none",
           "hover:brightness-95 hover:z-20",
           isSelected && "ring-2 ring-primary ring-offset-1",
           isDragging && "opacity-50 cursor-grabbing",
@@ -147,7 +150,7 @@ export function TimeBlock({
         )}
         style={{
           top: `${top}px`,
-          height: `${Math.max(height - 4, 20)}px`,
+          height: `${Math.max(height - 4, 4)}px`,
           left: `calc(${(100 / layout.columnCount) * layout.lane}% + ${layout.lane === 0 ? "4px" : "1px"})`,
           width: `calc(${100 / layout.columnCount - COLUMN_GAP_PCT}% - ${layout.lane === 0 ? "4px" : "1px"})`,
           backgroundColor: colors.bg,
@@ -170,6 +173,22 @@ export function TimeBlock({
             )}
             onMouseDown={handleTopResize}
           />
+        )}
+
+        {/* Delete button — top-right, visible on hover */}
+        {onDelete && (
+          <button
+            className="absolute top-0.5 right-0.5 z-20 h-4 w-4 flex items-center justify-center rounded-sm opacity-0 group-hover:opacity-60 hover:opacity-100 bg-black/20 hover:bg-black/40 text-white transition-opacity"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (window.confirm(`Delete "${displayTitle}"?`)) {
+                onDelete(block.id);
+              }
+            }}
+            title={`Delete ${displayTitle}`}
+          >
+            <X className="h-3 w-3" />
+          </button>
         )}
 
         {/* Content */}

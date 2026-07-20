@@ -7,40 +7,21 @@ interface TitleSectionProps {
   title: string;
   onChange: (value: string) => void;
   onBlur: () => void;
-  isBreak?: boolean;
-  onBreakChange?: (value: boolean) => void;
 }
 
 export function TimeBlockTitleSection({
   title,
   onChange,
   onBlur,
-  isBreak,
-  onBreakChange,
 }: TitleSectionProps) {
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1">
-        <Input
-          value={title}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={onBlur}
-          className="border-none shadow-none text-base font-medium p-0 h-auto focus-visible:ring-0 bg-transparent"
-          placeholder={isBreak ? "Break (optional)" : "Time block title"}
-        />
-      </div>
-      {onBreakChange !== undefined && (
-        <label className="flex items-center gap-1.5 cursor-pointer select-none shrink-0">
-          <input
-            type="checkbox"
-            checked={isBreak ?? false}
-            onChange={(e) => onBreakChange(e.target.checked)}
-            className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
-          />
-          <span className="text-xs text-muted-foreground">Break</span>
-        </label>
-      )}
-    </div>
+    <Input
+      value={title}
+      onChange={(e) => onChange(e.target.value)}
+      onBlur={onBlur}
+      className="border-none shadow-none text-base font-medium p-0 h-auto focus-visible:ring-0 bg-transparent"
+      placeholder="Time block title"
+    />
   );
 }
 
@@ -79,7 +60,7 @@ export function TimeRangeSection({
         value={startTime}
         onChange={(e) => onStartTimeChange(e.target.value)}
         onBlur={onBlur}
-        className="h-8 w-24 text-sm"
+        className="h-8 w-24 text-base font-semibold"
       />
       <span className="text-muted-foreground/60">–</span>
       <Input
@@ -91,7 +72,7 @@ export function TimeRangeSection({
         className={cn("h-8 w-24 text-sm", endDisabled && "opacity-50")}
         title={endDisabled ? "Duration is locked — end time follows the start" : undefined}
       />
-      <span className="text-xs text-muted-foreground ml-1">
+      <span className="text-xs text-muted-foreground ml-1 font-medium">
         {formatDuration()}
       </span>
     </div>

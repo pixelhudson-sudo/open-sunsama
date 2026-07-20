@@ -29,6 +29,7 @@ import {
   useCreateTimeBlock,
   useCascadeResizeTimeBlock,
   useUpdateTimeBlock,
+  useDeleteTimeBlock,
 } from "@/hooks";
 import { useAuth } from "@/hooks/useAuth";
 import { useSavePreferences } from "@/hooks/useUserPreferences";
@@ -71,7 +72,7 @@ const VIEW_MODE_STORAGE_KEY = "open_sunsama_calendar_view_mode";
  * Hours-view zoom: pixels per hour. 64 is the standard day-view scale;
  * the levels give 75% / 100% / 150% / 200%. Persisted across sessions.
  */
-const HOURS_ZOOM_LEVELS = [48, 64, 74, 86, 106, 115, 128] as const;
+const HOURS_ZOOM_LEVELS = [48, 64, 74, 86, 106, 115, 128, 210, 225, 240, 260, 280, 300] as const;
 const DEFAULT_HOURS_ZOOM = 64;
 const HOURS_ZOOM_STORAGE_KEY = "open_sunsama_hours_zoom";
 const SCHEDULE_PANEL_STORAGE_KEY = "open_sunsama_hours_schedule_panel";
@@ -401,6 +402,7 @@ export function CalendarView({
   const createTimeBlock = useCreateTimeBlock();
   const cascadeResizeTimeBlock = useCascadeResizeTimeBlock();
   const updateTimeBlock = useUpdateTimeBlock();
+  const deleteTimeBlock = useDeleteTimeBlock();
   const queryClient = useQueryClient();
 
   // --- Schedule Templates ---
@@ -410,7 +412,6 @@ export function CalendarView({
       const api = getApi();
       return await api.scheduleTemplates.list();
     },
-    throwOnError: false,
   });
 
   const createTemplateMutation = useMutation({
@@ -429,7 +430,17 @@ export function CalendarView({
       }));
       return api.scheduleTemplates.create({ name, items });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: templateKeys.lists() }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: templateKeys.lists() });
+      toast({ title: "Template saved" });
+    },
+    onError: (err) => {
+      toast({
+        variant: "destructive",
+        title: "Failed to save template",
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    },
   });
 
   const renameTemplateMutation = useMutation({
@@ -437,7 +448,17 @@ export function CalendarView({
       const api = getApi();
       return api.scheduleTemplates.update(id, { name });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: templateKeys.lists() }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: templateKeys.lists() });
+      toast({ title: "Template renamed" });
+    },
+    onError: (err) => {
+      toast({
+        variant: "destructive",
+        title: "Failed to rename template",
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    },
   });
 
   const handleSaveAsTemplate = React.useCallback(() => {
@@ -447,29 +468,46 @@ export function CalendarView({
     }
   }, [createTemplateMutation]);
 
+  const [templateItemsCache, setTemplateItemsCache] = React.useState<Record<string, any[]>>({});
+
   const handleLoadTemplate = React.useCallback(async (templateId: string) => {
     try {
       const api = getApi();
-      const template = await api.scheduleTemplates.get(templateId);
-      if (!template?.items) {
+      let items = templateItemsCache[templateId];
+      if (!items) {
+        const template = await api.scheduleTemplates.get(templateId);
+        items = template?.items;
+        if (items) {
+          setTemplateItemsCache((prev) => {
+            const next = { ...prev };
+            next[templateId] = items!;
+            return next;
+          });
+        }
+      }
+      if (!items || items.length === 0) {
         toast({ variant: "destructive", title: "Template is empty" });
         return;
       }
       const dateStr = format(selectedDate, "yyyy-MM-dd");
       let loadedCount = 0;
-      for (const item of template.items) {
+      for (const item of items) {
         const startTime = new Date(`${dateStr}T${item.startTime}:00`);
         const endTime = new Date(`${dateStr}T${item.endTime}:00`);
         if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) continue;
-        createTimeBlock.mutate({
-          title: item.title || (item.isBreak ? "Break" : "Untitled"),
-          startTime,
-          endTime,
-          color: item.color ?? undefined,
-          isBreak: item.isBreak,
-          isDurationLocked: item.isDurationLocked,
-        });
-        loadedCount++;
+        try {
+          await createTimeBlock.mutateAsync({
+            title: item.title || (item.isBreak ? "Break" : "Untitled"),
+            startTime,
+            endTime,
+            color: item.color ?? undefined,
+            isBreak: item.isBreak,
+            isDurationLocked: item.isDurationLocked,
+          });
+          loadedCount++;
+        } catch {
+          // individual block failure — continue to try the rest
+        }
       }
       toast({ title: `Loaded ${loadedCount} blocks from template` });
     } catch (err) {
@@ -479,7 +517,7 @@ export function CalendarView({
         description: err instanceof Error ? err.message : "Unknown error",
       });
     }
-  }, [selectedDate, createTimeBlock]);
+  }, [selectedDate, createTimeBlock, templateItemsCache]);
 
   const handleRenameTemplate = React.useCallback((templateId: string) => {
     const t = templates.find((t) => t.id === templateId);
@@ -490,53 +528,78 @@ export function CalendarView({
   }, [templates, renameTemplateMutation]);
 
   const handleDownloadTemplate = React.useCallback(async (templateId: string) => {
-    const api = getApi();
-    const template = await api.scheduleTemplates.get(templateId);
-    if (!template?.items) return;
-    // Generate ICS for the next 7 days starting next Monday
-    const today = new Date();
-    const dayOfWeek = today.getDay();
-    const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
-    const monday = new Date(today);
-    monday.setDate(today.getDate() + daysUntilMonday);
-    monday.setHours(0, 0, 0, 0);
-
-    const icsLines: string[] = [
-      'BEGIN:VCALENDAR',
-      'VERSION:2.0',
-      'PRODID:-//OpenSunsama//Schedule//EN',
-      'CALSCALE:GREGORIAN',
-      'METHOD:PUBLISH',
-    ];
-    for (let d = 0; d < 7; d++) {
-      const day = new Date(monday);
-      day.setDate(monday.getDate() + d);
-      const dateStr = format(day, 'yyyyMMdd');
-      for (const item of template.items) {
-        const uid = `${template.id}-${d}-${item.startTime}`;
-        const dtStart = `${dateStr}T${item.startTime.replace(':', '')}00`;
-        const dtEnd = `${dateStr}T${item.endTime.replace(':', '')}00`;
-        const now = format(new Date(), "yyyyMMdd'T'HHmmss");
-        icsLines.push('BEGIN:VEVENT');
-        icsLines.push(`UID:${uid}`);
-        icsLines.push(`DTSTART:${dtStart}`);
-        icsLines.push(`DTEND:${dtEnd}`);
-        icsLines.push(`SUMMARY:${item.title || 'Busy'}`);
-        icsLines.push(`DTSTAMP:${now}`);
-        icsLines.push('END:VEVENT');
+    try {
+      const api = getApi();
+      let items = templateItemsCache[templateId];
+      if (!items) {
+        const template = await api.scheduleTemplates.get(templateId);
+        items = template?.items;
+        if (items) {
+          setTemplateItemsCache((prev) => {
+            const next = { ...prev };
+            next[templateId] = items!;
+            return next;
+          });
+        }
       }
+      if (!items || items.length === 0) {
+        toast({ variant: "destructive", title: "Template has no items" });
+        return;
+      }
+      const templateMeta = templates.find((t) => t.id === templateId);
+      const templateName = templateMeta?.name ?? "schedule";
+      // Generate ICS for the next 7 days starting next Monday
+      const today = new Date();
+      const dayOfWeek = today.getDay();
+      const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+      const monday = new Date(today);
+      monday.setDate(today.getDate() + daysUntilMonday);
+      monday.setHours(0, 0, 0, 0);
+
+      const icsLines: string[] = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//OpenSunsama//Schedule//EN',
+        'CALSCALE:GREGORIAN',
+        'METHOD:PUBLISH',
+      ];
+      for (let d = 0; d < 7; d++) {
+        const day = new Date(monday);
+        day.setDate(monday.getDate() + d);
+        const dateStr = format(day, 'yyyyMMdd');
+        for (const item of items) {
+          const uid = `${templateId}-${d}-${item.startTime}`;
+          const dtStart = `${dateStr}T${item.startTime.replace(':', '')}00`;
+          const dtEnd = `${dateStr}T${item.endTime.replace(':', '')}00`;
+          const now = format(new Date(), "yyyyMMdd'T'HHmmss");
+          icsLines.push('BEGIN:VEVENT');
+          icsLines.push(`UID:${uid}`);
+          icsLines.push(`DTSTART:${dtStart}`);
+          icsLines.push(`DTEND:${dtEnd}`);
+          icsLines.push(`SUMMARY:${item.title || 'Busy'}`);
+          icsLines.push(`DTSTAMP:${now}`);
+          icsLines.push('END:VEVENT');
+        }
+      }
+      icsLines.push('END:VCALENDAR');
+
+      const blob = new Blob([icsLines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${templateName.replace(/[^a-zA-Z0-9_-]/g, '_')}.ics`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast({ title: `Downloaded ${templateName}.ics` });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Failed to download template",
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
     }
-    icsLines.push('END:VCALENDAR');
-
-    const blob = new Blob([icsLines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${template.name.replace(/[^a-zA-Z0-9_-]/g, '_')}.ics`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, []);
-
+  }, [templates, templateItemsCache]);
+ 
   // Filter tasks that don't have a time block on this day
   const unscheduledTasks = React.useMemo(() => {
     const blockedTaskIds = new Set(
@@ -1031,6 +1094,7 @@ export function CalendarView({
               onBlockEndClick={(blockEnd) => {
                 onQuickCreate?.(selectedDate, blockEnd);
               }}
+              onBlockDelete={(blockId) => deleteTimeBlock.mutate(blockId)}
               {...(onBlockClick ? { onBlockClick } : {})}
               {...(onEditBlock ? { onEditBlock } : {})}
               {...(onViewTask ? { onViewTask } : {})}

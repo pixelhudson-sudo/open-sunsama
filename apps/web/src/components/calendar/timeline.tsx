@@ -51,6 +51,7 @@ interface TimelineProps {
   timelineRef: React.RefObject<HTMLDivElement | null>;
   onBlockClick?: (block: TimeBlockType) => void;
   onEditBlock?: (block: TimeBlockType) => void;
+  onBlockDelete?: (blockId: string) => void;
   onBlockDragStart?: (block: TimeBlockType, e: React.MouseEvent) => void;
   onBlockResizeStart?: (block: TimeBlockType, edge: "top" | "bottom", e: React.MouseEvent) => void;
   onViewTask?: (taskId: string) => void;
@@ -104,6 +105,7 @@ export function Timeline({
   timelineRef,
   onBlockClick,
   onEditBlock,
+  onBlockDelete,
   onBlockDragStart,
   onBlockResizeStart,
   onViewTask,
@@ -489,6 +491,7 @@ export function Timeline({
                   layout={itemLayouts.get(`block:${block.id}`) ?? DEFAULT_LAYOUT}
                   onClick={() => onBlockClick?.(block)}
                   onEditBlock={() => onEditBlock?.(block)}
+                  onDelete={onBlockDelete ? () => onBlockDelete(block.id) : undefined}
                   onDragStart={(e) => onBlockDragStart?.(block, e)}
                   onResizeStart={(e, edge) => onBlockResizeStart?.(block, edge, e)}
                   onEndClick={

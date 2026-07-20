@@ -305,13 +305,16 @@ function MultiDayBlock({
   return (
     <div
       data-time-block
-      className="absolute z-10 my-0.5 rounded cursor-pointer hover:brightness-90 hover:z-20 transition-all overflow-hidden px-1 py-0.5"
+      className={cn(
+        "absolute z-10 my-0.5 rounded cursor-pointer hover:brightness-90 hover:z-20 transition-all overflow-hidden px-1 py-0.5",
+        block.isBreak && "border border-dashed border-white/40"
+      )}
       style={{
         top: `${top}px`,
         height: `${Math.max(height - 2, 16)}px`,
         left: `${leftPct}%`,
         width: `${widthPct}%`,
-        backgroundColor: hexToRgba(color, 0.85),
+        backgroundColor: hexToRgba(color, block.isBreak ? 0.95 : 0.85),
         color: "white",
       }}
       onClick={(e) => {
@@ -323,7 +326,7 @@ function MultiDayBlock({
       aria-label={`${block.title} at ${format(startTime, "h:mm a")}`}
     >
       <p className="truncate text-[10px] font-semibold leading-tight">
-        {block.title}
+        {block.title || "Break"}
       </p>
       {height >= 28 && (
         <p className="truncate text-[9px] text-white/80">

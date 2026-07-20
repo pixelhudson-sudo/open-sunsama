@@ -246,16 +246,14 @@ export function TimeBlockDetailSheet({
         </SheetHeader>
 
         <div className="flex-1 space-y-4 overflow-y-auto">
-          {/* Title + Break checkbox inline */}
+          {/* Title */}
           <TimeBlockTitleSection
             title={title}
             onChange={setTitle}
             onBlur={handleTitleBlur}
-            isBreak={isBreak}
-            onBreakChange={handleBreakChange}
           />
 
-          {/* Time */}
+          {/* Time — start bigger/bold, duration after end */}
           <TimeRangeSection
             startTime={startTime}
             endTime={endTime}
@@ -266,8 +264,25 @@ export function TimeBlockDetailSheet({
             onBlur={handleTimeBlur}
           />
 
-          {/* Flags — only Lock duration (Break is inline with title now) */}
-          <div className="space-y-2">
+          {/* Flags */}
+          <div className="space-y-3">
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <Checkbox
+                checked={isBreak}
+                onCheckedChange={(checked) =>
+                  handleBreakChange(checked === true)
+                }
+                className="mt-0.5"
+              />
+              <span className="flex flex-col">
+                <span className="flex items-center gap-1.5 text-sm">
+                  Break
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  Marks time as a break in your schedule.
+                </span>
+              </span>
+            </label>
             <label className="flex items-start gap-2.5 cursor-pointer select-none">
               <Checkbox
                 checked={isDurationLocked}
