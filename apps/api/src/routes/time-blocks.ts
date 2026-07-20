@@ -432,6 +432,9 @@ timeBlocksRouter.patch('/:id/cascade-resize', requireScopes('time-blocks:write')
   // Calculate the updates needed
   type BlockUpdate = { id: string; startTime: string; endTime: string; durationMins: number };
   const updates: BlockUpdate[] = [];
+  // Pre-change times of every touched block, returned to the client so
+  // the change can be undone with a single restore batch.
+  const previous: Array<{ id: string; date: string; startTime: string; endTime: string }> = [];
 
   // First, add the resized block's update
   const newDuration = calculateDuration(newStartTime, newEndTime);
@@ -440,6 +443,12 @@ timeBlocksRouter.patch('/:id/cascade-resize', requireScopes('time-blocks:write')
     startTime: newStartTime,
     endTime: newEndTime,
     durationMins: newDuration,
+  });
+  previous.push({
+    id: targetBlock.id,
+    date: targetDate,
+    startTime: originalStartTime,
+    endTime: originalEndTime,
   });
 
   const otherBlocks = allBlocks.filter((block) => block.id !== id);
@@ -474,6 +483,12 @@ timeBlocksRouter.patch('/:id/cascade-resize', requireScopes('time-blocks:write')
           startTime: minutesToTime(shiftedStart),
           endTime: minutesToTime(shiftedEnd),
           durationMins: blockEnd - blockStart,
+        });
+        previous.push({
+          id: block.id,
+          date: block.date,
+          startTime: block.startTime,
+          endTime: block.endTime,
         });
         next.add(continuationOf(block));
       }
@@ -539,7 +554,7 @@ timeBlocksRouter.patch('/:id/cascade-resize', requireScopes('time-blocks:write')
     });
   }
 
-  return c.json({ success: true, data: updatedBlocksWithTasks });
+  return c.json({ success: true, data: updatedBlocksWithTasks, meta: { previous } });
 });
 
 /** DELETE /time-blocks/:id - Delete a time block */

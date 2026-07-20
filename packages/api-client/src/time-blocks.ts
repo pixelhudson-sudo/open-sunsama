@@ -103,6 +103,22 @@ interface ApiResponseWrapper<T> {
 }
 
 /**
+ * Pre-change times of every block touched by a cascade, so the whole
+ * change (target + shifted chain) can be undone with one restore batch.
+ */
+export interface CascadePreviousState {
+  id: string;
+  date: string; // YYYY-MM-DD
+  startTime: string; // HH:mm
+  endTime: string; // HH:mm
+}
+
+export interface CascadeResizeResult {
+  blocks: TimeBlock[];
+  previous: CascadePreviousState[];
+}
+
+/**
  * Time Blocks API interface
  */
 export interface TimeBlocksApi {
@@ -120,7 +136,7 @@ export interface TimeBlocksApi {
   batchCreate(inputs: CreateTimeBlockInput[], options?: RequestOptions): Promise<TimeBlock[]>;
   batchUpdate(updates: Array<{ id: string; input: UpdateTimeBlockInput }>, options?: RequestOptions): Promise<TimeBlock[]>;
   batchDelete(ids: string[], options?: RequestOptions): Promise<void>;
-  cascadeResize(id: string, data: { startTime: Date | string; endTime: Date | string }, options?: RequestOptions): Promise<TimeBlock[]>;
+  cascadeResize(id: string, data: { startTime: Date | string; endTime: Date | string }, options?: RequestOptions): Promise<CascadeResizeResult>;
 }
 
 /**
@@ -289,14 +305,17 @@ export function createTimeBlocksApi(client: OpenSunsamaClient): TimeBlocksApi {
       });
     },
 
-    async cascadeResize(id: string, data: { startTime: Date | string; endTime: Date | string }, options?: RequestOptions): Promise<TimeBlock[]> {
+    async cascadeResize(id: string, data: { startTime: Date | string; endTime: Date | string }, options?: RequestOptions): Promise<CascadeResizeResult> {
       // Backend expects times in HH:mm format
       const payload = {
         startTime: formatTimeForApi(data.startTime),
         endTime: formatTimeForApi(data.endTime),
       };
-      const response = await client.patch<ApiResponseWrapper<RawTimeBlock[]>>(`time-blocks/${id}/cascade-resize`, payload, options);
-      return response.data.map(transformTimeBlock);
+      const response = await client.patch<ApiResponseWrapper<RawTimeBlock[]> & { meta?: { previous?: CascadePreviousState[] } }>(`time-blocks/${id}/cascade-resize`, payload, options);
+      return {
+        blocks: response.data.map(transformTimeBlock),
+        previous: response.meta?.previous ?? [],
+      };
     },
   };
 }

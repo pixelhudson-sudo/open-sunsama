@@ -34,10 +34,14 @@ interface TimelineProps {
   /**
    * "Hours" view: render quarter-hour grid lines and :15/:30/:45
    * gutter labels on top of the standard hour/half-hour grid.
-   * Pixel-per-hour math is unchanged so all drag/snap logic is
-   * identical to the day view.
    */
   fineGrained?: boolean;
+  /**
+   * Pixels per hour — the hours-view zoom level. All position math
+   * (grid, blocks, drag previews, auto-scroll) uses this scale; font
+   * sizes are unaffected. Defaults to the standard HOUR_HEIGHT.
+   */
+  hourHeight?: number;
   timeBlocks: TimeBlockType[];
   calendarEvents?: CalendarEvent[];
   isLoading?: boolean;
@@ -88,6 +92,7 @@ function generateHours(): number[] {
 export function Timeline({
   date,
   fineGrained = false,
+  hourHeight = HOUR_HEIGHT,
   timeBlocks,
   calendarEvents = [],
   isLoading = false,
@@ -125,15 +130,15 @@ export function Timeline({
   // Calculate current time indicator position
   const currentTimePosition = React.useMemo(() => {
     if (!isToday) return null;
-    return calculateYFromTime(now);
-  }, [isToday, now]);
+    return calculateYFromTime(now, hourHeight);
+  }, [isToday, now, hourHeight]);
 
   // Auto-scroll to current time on initial load
   React.useEffect(() => {
     if (isToday && scrollAreaRef.current) {
       // Scroll to 2 hours before current time, or start of day
-      const scrollPosition = Math.max(0, (now.getHours() - 2) * HOUR_HEIGHT);
-      
+      const scrollPosition = Math.max(0, (now.getHours() - 2) * hourHeight);
+
       // Find the scroll viewport within ScrollArea
       const viewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
       if (viewport) {
@@ -281,7 +286,7 @@ export function Timeline({
     const relativeY = e.clientY - rect.top;
     
     // Calculate time from Y position
-    const clickedTime = calculateTimeFromY(relativeY, date);
+    const clickedTime = calculateTimeFromY(relativeY, date, hourHeight);
     let snappedStartTime = snapToInterval(clickedTime, SNAP_INTERVAL);
     // Butt the new block against the end of a previous event when the
     // click lands near one — keeps the default 60-minute duration.
@@ -316,7 +321,7 @@ export function Timeline({
       <ScrollArea className="h-full flex-1" ref={scrollAreaRef}>
         <div
           className="flex"
-          style={{ minHeight: hours.length * HOUR_HEIGHT }}
+          style={{ minHeight: hours.length * hourHeight }}
         >
           {/* Time Labels Column */}
           <div className="w-12 sm:w-16 flex-shrink-0 border-r bg-muted/30">
@@ -324,7 +329,7 @@ export function Timeline({
               <div
                 key={hour}
                 className="relative border-b border-border/50"
-                style={{ height: HOUR_HEIGHT }}
+                style={{ height: hourHeight }}
               >
                 <span className="absolute -top-2 right-1 sm:right-2 text-[10px] sm:text-xs text-muted-foreground font-medium">
                   {format(setHours(date, hour), "ha").toLowerCase()}
@@ -338,7 +343,7 @@ export function Timeline({
                       key={minute}
                       aria-hidden="true"
                       className="absolute right-1 sm:right-2 text-[9px] leading-none text-muted-foreground/60 tabular-nums"
-                      style={{ top: (HOUR_HEIGHT * minute) / 60 - 6 }}
+                      style={{ top: (hourHeight * minute) / 60 - 6 }}
                     >
                       {format(
                         addMinutes(setHours(date, hour), minute),
@@ -372,7 +377,7 @@ export function Timeline({
                   "border-b border-border/30",
                   "hover:bg-accent/30 transition-colors"
                 )}
-                style={{ height: HOUR_HEIGHT }}
+                style={{ height: hourHeight }}
               />
             ))}
 
@@ -384,7 +389,7 @@ export function Timeline({
                   "absolute left-0 right-0 border-b",
                   fineGrained ? "border-border/25" : "border-border/15"
                 )}
-                style={{ top: (hour - TIMELINE_START_HOUR) * HOUR_HEIGHT + HOUR_HEIGHT / 2 }}
+                style={{ top: (hour - TIMELINE_START_HOUR) * hourHeight + hourHeight / 2 }}
               />
             ))}
 
@@ -401,8 +406,8 @@ export function Timeline({
                       className="absolute left-0 right-0 border-b border-border/10"
                       style={{
                         top:
-                          (hour - TIMELINE_START_HOUR) * HOUR_HEIGHT +
-                          (HOUR_HEIGHT / 4) * quarter,
+                          (hour - TIMELINE_START_HOUR) * hourHeight +
+                          (hourHeight / 4) * quarter,
                       }}
                     />
                   ))}
@@ -445,6 +450,7 @@ export function Timeline({
                     key={event.id}
                     event={event}
                     displayDate={date}
+                    hourHeight={hourHeight}
                     layout={
                       itemLayouts.get(`event:${event.id}`) ?? DEFAULT_LAYOUT
                     }
@@ -476,6 +482,7 @@ export function Timeline({
                 <TimeBlock
                   key={block.id}
                   block={block}
+                  hourHeight={hourHeight}
                   layout={itemLayouts.get(`block:${block.id}`) ?? DEFAULT_LAYOUT}
                   onClick={() => onBlockClick?.(block)}
                   onEditBlock={() => onEditBlock?.(block)}

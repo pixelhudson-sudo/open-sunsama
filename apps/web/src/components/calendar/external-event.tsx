@@ -24,6 +24,8 @@ const COLUMN_GAP_PCT = 1; // gap between side-by-side overlapping events
 
 interface ExternalEventProps {
   event: CalendarEvent;
+  /** Pixels per hour — hours-view zoom level (defaults to HOUR_HEIGHT) */
+  hourHeight?: number;
   /**
    * The day this timeline is rendering. Used to clamp multi-day events
    * to the visible window — without this a Mon→Wed event would render at
@@ -102,6 +104,7 @@ function getEventColor(event: CalendarEvent): string {
  */
 export function ExternalEvent({
   event,
+  hourHeight = HOUR_HEIGHT,
   displayDate,
   layout = { lane: 0, columnCount: 1 },
   onClick,
@@ -133,9 +136,9 @@ export function ExternalEvent({
   const renderEnd = continuesToNextDay ? dayEnd : endTime;
 
   // Calculate position and size based on the clamped slice.
-  const top = calculateYFromTime(renderStart);
+  const top = calculateYFromTime(renderStart, hourHeight);
   const durationMins = differenceInMinutes(renderEnd, renderStart);
-  const height = (durationMins / 60) * HOUR_HEIGHT;
+  const height = (durationMins / 60) * hourHeight;
 
   // Determine if event is too short to show full content
   const isCompact = height < 48;

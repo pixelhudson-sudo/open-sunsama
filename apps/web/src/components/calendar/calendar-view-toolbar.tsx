@@ -1,5 +1,5 @@
 import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Coffee, Printer } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Coffee, Printer, ZoomIn, ZoomOut, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { Button } from "@/components/ui";
 import type { TimeBlock, CalendarViewMode } from "@open-sunsama/types";
 import { cn } from "@/lib/utils";
@@ -22,6 +22,15 @@ interface CalendarViewToolbarProps {
   viewMode: CalendarViewMode;
   onViewModeChange: (mode: CalendarViewMode) => void;
   timeBlocks: TimeBlock[];
+  /** Hours-view zoom controls (rendered only in hours mode) */
+  zoomPercent?: number;
+  canZoomIn?: boolean;
+  canZoomOut?: boolean;
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
+  /** Hours-view schedule panel toggle (rendered only in hours mode) */
+  schedulePanelOpen?: boolean;
+  onToggleSchedulePanel?: () => void;
   onPreviousDay: () => void;
   onNextDay: () => void;
   onToday: () => void;
@@ -85,6 +94,13 @@ export function CalendarViewToolbar({
   viewMode,
   onViewModeChange,
   timeBlocks,
+  zoomPercent = 100,
+  canZoomIn = true,
+  canZoomOut = true,
+  onZoomIn,
+  onZoomOut,
+  schedulePanelOpen = true,
+  onToggleSchedulePanel,
   onPreviousDay,
   onNextDay,
   onToday,
@@ -172,6 +188,52 @@ export function CalendarViewToolbar({
             </button>
           ))}
         </div>
+
+        {/* Hours-view zoom controls */}
+        {viewMode === "hours" && (
+          <div className="inline-flex items-center rounded-md border border-border/50 bg-muted/30 p-0.5">
+            <button
+              onClick={onZoomOut}
+              disabled={!canZoomOut}
+              aria-label="Zoom out (-)"
+              title="Zoom out (-)"
+              className="h-7 w-7 rounded inline-flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:pointer-events-none transition-colors"
+            >
+              <ZoomOut className="h-3.5 w-3.5" />
+            </button>
+            <span className="min-w-[44px] text-center text-xs tabular-nums text-muted-foreground">
+              {zoomPercent}%
+            </span>
+            <button
+              onClick={onZoomIn}
+              disabled={!canZoomIn}
+              aria-label="Zoom in (+)"
+              title="Zoom in (+)"
+              className="h-7 w-7 rounded inline-flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:pointer-events-none transition-colors"
+            >
+              <ZoomIn className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* Hours-view schedule panel toggle */}
+        {viewMode === "hours" && onToggleSchedulePanel && (
+          <Button
+            variant={schedulePanelOpen ? "secondary" : "outline"}
+            size="sm"
+            onClick={onToggleSchedulePanel}
+            aria-label={schedulePanelOpen ? "Hide schedule panel" : "Show schedule panel"}
+            title={schedulePanelOpen ? "Hide schedule panel" : "Show schedule panel"}
+            className="h-9 px-2.5 text-xs gap-1.5"
+          >
+            {schedulePanelOpen ? (
+              <PanelRightClose className="h-3.5 w-3.5" />
+            ) : (
+              <PanelRightOpen className="h-3.5 w-3.5" />
+            )}
+            <span className="hidden sm:inline">Schedule</span>
+          </Button>
+        )}
 
         {/* Block count badge — only on single-day views (per-day signal).
             Breaks are schedule scaffolding, not work — excluded. */}

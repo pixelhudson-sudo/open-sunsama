@@ -46,6 +46,10 @@ export function useCalendarDnd(
   // the global mousemove listeners) on every parent render.
   const snapIntervalsRef = useRef<SnapInterval[] | undefined>(undefined);
   snapIntervalsRef.current = options?.snapIntervals;
+  // Pixels-per-hour for preview math — matches the rendered timeline's
+  // zoom level (hours view). Same ref rationale as above.
+  const hourHeightRef = useRef<number | undefined>(undefined);
+  hourHeightRef.current = options?.hourHeight;
 
   /**
    * Start dragging a task from unscheduled list
@@ -163,7 +167,8 @@ export function useCalendarDnd(
             relativeY,
             selectedDate,
             duration,
-            snapIntervalsRef.current
+            snapIntervalsRef.current,
+            hourHeightRef.current
           );
           setDropPreview(preview);
           break;
@@ -175,7 +180,8 @@ export function useCalendarDnd(
               deltaY,
               dragState.block,
               selectedDate,
-              snapIntervalsRef.current
+              snapIntervalsRef.current,
+              hourHeightRef.current
             );
             setDropPreview(preview);
           }
@@ -190,7 +196,8 @@ export function useCalendarDnd(
               deltaY,
               dragState.block,
               edge,
-              selectedDate
+              selectedDate,
+              hourHeightRef.current
             );
             setDropPreview(preview);
           }
@@ -206,7 +213,8 @@ export function useCalendarDnd(
               deltaY,
               dragState.event as unknown as TimeBlock,
               selectedDate,
-              snapIntervalsRef.current
+              snapIntervalsRef.current,
+              hourHeightRef.current
             );
             setDropPreview(preview);
           }
@@ -222,7 +230,8 @@ export function useCalendarDnd(
               deltaY,
               dragState.event as unknown as TimeBlock,
               edge,
-              selectedDate
+              selectedDate,
+              hourHeightRef.current
             );
             setDropPreview(preview);
           }

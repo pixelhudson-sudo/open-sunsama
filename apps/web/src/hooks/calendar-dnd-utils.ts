@@ -20,9 +20,9 @@ export const TIMELINE_END_HOUR = 23; // 23:00
 /**
  * Calculate time from Y position on timeline
  */
-export function calculateTimeFromY(y: number, baseDate: Date): Date {
+export function calculateTimeFromY(y: number, baseDate: Date, hourHeight: number = HOUR_HEIGHT): Date {
   // Calculate hours and minutes from Y position
-  const totalMinutes = (y / HOUR_HEIGHT) * 60;
+  const totalMinutes = (y / hourHeight) * 60;
   const hours = Math.floor(totalMinutes / 60) + TIMELINE_START_HOUR;
   const minutes = totalMinutes % 60;
 
@@ -36,10 +36,10 @@ export function calculateTimeFromY(y: number, baseDate: Date): Date {
 /**
  * Calculate Y position from time
  */
-export function calculateYFromTime(time: Date): number {
+export function calculateYFromTime(time: Date, hourHeight: number = HOUR_HEIGHT): number {
   const hours = time.getHours();
   const minutes = time.getMinutes();
-  return ((hours - TIMELINE_START_HOUR) * 60 + minutes) * (HOUR_HEIGHT / 60);
+  return ((hours - TIMELINE_START_HOUR) * 60 + minutes) * (hourHeight / 60);
 }
 
 /**
@@ -101,9 +101,10 @@ export function calculateTaskDropPreview(
   y: number,
   baseDate: Date,
   durationMins: number = 60,
-  snapIntervals?: SnapInterval[]
+  snapIntervals?: SnapInterval[],
+  hourHeight: number = HOUR_HEIGHT
 ): DropPreview {
-  const rawTime = calculateTimeFromY(y, baseDate);
+  const rawTime = calculateTimeFromY(y, baseDate, hourHeight);
   let startTime = snapToInterval(rawTime);
 
   // Adjacency snap: butt the new block against the end of a previous
@@ -117,8 +118,8 @@ export function calculateTaskDropPreview(
 
   const endTime = addMinutes(startTime, durationMins);
 
-  const top = calculateYFromTime(startTime);
-  const height = (durationMins / 60) * HOUR_HEIGHT;
+  const top = calculateYFromTime(startTime, hourHeight);
+  const height = (durationMins / 60) * hourHeight;
 
   return { startTime, endTime, top, height };
 }
@@ -143,17 +144,18 @@ export function calculateMovePreview(
   deltaY: number,
   block: TimeBlock,
   baseDate: Date,
-  snapIntervals?: SnapInterval[]
+  snapIntervals?: SnapInterval[],
+  hourHeight: number = HOUR_HEIGHT
 ): DropPreview {
   const originalDuration = differenceInMinutes(
     new Date(block.endTime),
     new Date(block.startTime)
   );
 
-  const originalTop = calculateYFromTime(new Date(block.startTime));
+  const originalTop = calculateYFromTime(new Date(block.startTime), hourHeight);
   const newTop = Math.max(0, originalTop + deltaY);
 
-  const rawStartTime = calculateTimeFromY(newTop, baseDate);
+  const rawStartTime = calculateTimeFromY(newTop, baseDate, hourHeight);
   let startTime = snapToInterval(rawStartTime);
 
   // Clamp the start so the entire event still fits inside the day.
@@ -198,8 +200,8 @@ export function calculateMovePreview(
 
   const endTime = addMinutes(startTime, originalDuration);
 
-  const top = calculateYFromTime(startTime);
-  const height = (originalDuration / 60) * HOUR_HEIGHT;
+  const top = calculateYFromTime(startTime, hourHeight);
+  const height = (originalDuration / 60) * hourHeight;
 
   return { startTime, endTime, top, height };
 }
@@ -211,21 +213,22 @@ export function calculateResizePreview(
   deltaY: number,
   block: TimeBlock,
   edge: "top" | "bottom",
-  baseDate: Date
+  baseDate: Date,
+  hourHeight: number = HOUR_HEIGHT
 ): DropPreview {
   const originalStart = new Date(block.startTime);
   const originalEnd = new Date(block.endTime);
-  
+
   let startTime: Date;
   let endTime: Date;
 
   if (edge === "top") {
-    const originalTop = calculateYFromTime(originalStart);
+    const originalTop = calculateYFromTime(originalStart, hourHeight);
     const newTop = Math.max(0, originalTop + deltaY);
-    const rawStartTime = calculateTimeFromY(newTop, baseDate);
+    const rawStartTime = calculateTimeFromY(newTop, baseDate, hourHeight);
     startTime = snapToInterval(rawStartTime);
     endTime = originalEnd;
-    
+
     // Ensure minimum duration
     const duration = differenceInMinutes(endTime, startTime);
     if (duration < MIN_BLOCK_DURATION) {
@@ -233,9 +236,9 @@ export function calculateResizePreview(
     }
   } else {
     startTime = originalStart;
-    const originalBottom = calculateYFromTime(originalEnd);
+    const originalBottom = calculateYFromTime(originalEnd, hourHeight);
     const newBottom = originalBottom + deltaY;
-    const rawEndTime = calculateTimeFromY(newBottom, baseDate);
+    const rawEndTime = calculateTimeFromY(newBottom, baseDate, hourHeight);
     endTime = snapToInterval(rawEndTime);
 
     // Clamp end so it can't spill past midnight onto the next day.
@@ -271,10 +274,10 @@ export function calculateResizePreview(
     }
   }
 
-  const top = calculateYFromTime(startTime);
+  const top = calculateYFromTime(startTime, hourHeight);
   const height = Math.max(
-    (MIN_BLOCK_DURATION / 60) * HOUR_HEIGHT,
-    (differenceInMinutes(endTime, startTime) / 60) * HOUR_HEIGHT
+    (MIN_BLOCK_DURATION / 60) * hourHeight,
+    (differenceInMinutes(endTime, startTime) / 60) * hourHeight
   );
 
   return { startTime, endTime, top, height };

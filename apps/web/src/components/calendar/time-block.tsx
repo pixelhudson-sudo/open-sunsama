@@ -13,6 +13,8 @@ const COLUMN_GAP_PCT = 1; // gap between side-by-side overlapping items
 
 interface TimeBlockProps {
   block: TimeBlockType;
+  /** Pixels per hour — hours-view zoom level (defaults to HOUR_HEIGHT) */
+  hourHeight?: number;
   /**
    * Lane assignment from the side-by-side overlap layout. When N items
    * overlap at the same time slot, they split the column into N
@@ -70,6 +72,7 @@ function getBlockColors(block: TimeBlockType): {
  */
 export function TimeBlock({
   block,
+  hourHeight = HOUR_HEIGHT,
   layout = { lane: 0, columnCount: 1 },
   onClick,
   onEditBlock,
@@ -84,9 +87,9 @@ export function TimeBlock({
   const endTime = new Date(block.endTime);
 
   // Calculate position and size
-  const top = calculateYFromTime(startTime);
+  const top = calculateYFromTime(startTime, hourHeight);
   const durationMins = differenceInMinutes(endTime, startTime);
-  const height = (durationMins / 60) * HOUR_HEIGHT;
+  const height = (durationMins / 60) * hourHeight;
 
   // Get colors
   const colors = getBlockColors(block);

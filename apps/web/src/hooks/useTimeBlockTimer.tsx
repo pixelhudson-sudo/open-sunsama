@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { TimeBlock } from "@open-sunsama/types";
 import { toast } from "@/hooks/use-toast";
 import { timeBlockKeys } from "@/lib/query-keys";
+import { ToastAction } from "@/components/ui";
 import { useUpdateTimeBlock } from "./useTimeBlockMutations";
 import { useApiClient } from "@/lib/api";
 
@@ -115,6 +116,11 @@ export function useResizeTimeBlock() {
  * it, keeping their own durations. Covers moves, handle resizes, and
  * sidebar time edits. Uses the server-side cascade endpoint for atomic
  * multi-block updates.
+ *
+ * Every successful change offers an Undo toast: the cascade endpoint
+ * returns the pre-change times of every touched block, and undoing
+ * restores them all in parallel (bypassing the cascade so the restore
+ * doesn't ripple a second time).
  */
 export function useCascadeResizeTimeBlock() {
   const api = useApiClient();
@@ -133,8 +139,48 @@ export function useCascadeResizeTimeBlock() {
       // Use the server-side cascade resize endpoint
       return api.timeBlocks.cascadeResize(id, { startTime, endTime });
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: timeBlockKeys.lists() });
+
+      const previous = result.previous ?? [];
+      if (previous.length === 0) return;
+
+      const restore = async () => {
+        try {
+          await Promise.all(
+            previous.map((p) =>
+              api.timeBlocks.update(p.id, {
+                startTime: new Date(`${p.date}T${p.startTime}:00`),
+                endTime: new Date(`${p.date}T${p.endTime}:00`),
+              })
+            )
+          );
+          queryClient.invalidateQueries({ queryKey: timeBlockKeys.lists() });
+          toast({ title: "Schedule change undone" });
+        } catch (error) {
+          toast({
+            variant: "destructive",
+            title: "Undo failed",
+            description:
+              error instanceof Error ? error.message : "Unknown error",
+          });
+        }
+      };
+
+      toast({
+        title: "Schedule updated",
+        description: `${previous.length} block${previous.length === 1 ? "" : "s"} adjusted.`,
+        action: (
+          <ToastAction
+            altText="Undo schedule change"
+            onClick={() => {
+              void restore();
+            }}
+          >
+            Undo
+          </ToastAction>
+        ),
+      });
     },
     onError: (error) => {
       toast({

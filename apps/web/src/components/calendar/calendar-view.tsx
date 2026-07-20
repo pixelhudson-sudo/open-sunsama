@@ -42,6 +42,7 @@ import { useCalendarDnd } from "@/hooks/useCalendarDnd";
 import { Timeline } from "./timeline";
 import { MultiDayView } from "./multi-day-view";
 import { MonthView } from "./month-view";
+import { ScheduleTextPanel } from "./schedule-text-panel";
 import { UnscheduledTasksPanel } from "./unscheduled-tasks";
 import { DragOverlay } from "./drag-overlay";
 import { CalendarViewToolbar } from "./calendar-view-toolbar";
@@ -59,6 +60,26 @@ import {
  * preferences sync path.
  */
 const VIEW_MODE_STORAGE_KEY = "open_sunsama_calendar_view_mode";
+
+/**
+ * Hours-view zoom: pixels per hour. 64 is the standard day-view scale;
+ * the levels give 75% / 100% / 150% / 200%. Persisted across sessions.
+ */
+const HOURS_ZOOM_LEVELS = [48, 64, 96, 128] as const;
+const DEFAULT_HOURS_ZOOM = 64;
+const HOURS_ZOOM_STORAGE_KEY = "open_sunsama_hours_zoom";
+const SCHEDULE_PANEL_STORAGE_KEY = "open_sunsama_hours_schedule_panel";
+
+function getStoredHoursZoom(): number {
+  if (typeof window === "undefined") return DEFAULT_HOURS_ZOOM;
+  const v = Number(window.localStorage.getItem(HOURS_ZOOM_STORAGE_KEY));
+  return (HOURS_ZOOM_LEVELS as readonly number[]).includes(v) ? v : DEFAULT_HOURS_ZOOM;
+}
+
+function getStoredSchedulePanelOpen(): boolean {
+  if (typeof window === "undefined") return true;
+  return window.localStorage.getItem(SCHEDULE_PANEL_STORAGE_KEY) !== "0";
+}
 
 function getStoredViewMode(): CalendarViewMode | null {
   if (typeof window === "undefined") return null;
@@ -153,6 +174,46 @@ export function CalendarView({
   const [selectedDate, setSelectedDate] = React.useState<Date>(() =>
     startOfDay(initialDate)
   );
+
+  // Hours-view zoom (px per hour) + schedule panel visibility.
+  const [hoursZoom, setHoursZoom] = React.useState<number>(getStoredHoursZoom);
+  const [schedulePanelOpen, setSchedulePanelOpen] = React.useState<boolean>(
+    getStoredSchedulePanelOpen
+  );
+  const setHoursZoomPersisted = React.useCallback((zoom: number) => {
+    setHoursZoom(zoom);
+    try {
+      window.localStorage.setItem(HOURS_ZOOM_STORAGE_KEY, String(zoom));
+    } catch {
+      // ignore quota errors
+    }
+  }, []);
+  const toggleSchedulePanel = React.useCallback(() => {
+    setSchedulePanelOpen((open) => {
+      try {
+        window.localStorage.setItem(SCHEDULE_PANEL_STORAGE_KEY, open ? "0" : "1");
+      } catch {
+        // ignore quota errors
+      }
+      return !open;
+    });
+  }, []);
+  const zoomStep = React.useCallback(
+    (direction: 1 | -1) => {
+      const idx = (HOURS_ZOOM_LEVELS as readonly number[]).indexOf(hoursZoom);
+      const next = Math.min(
+        HOURS_ZOOM_LEVELS.length - 1,
+        Math.max(0, (idx === -1 ? 1 : idx) + direction)
+      );
+      setHoursZoomPersisted(HOURS_ZOOM_LEVELS[next]!);
+    },
+    [hoursZoom, setHoursZoomPersisted]
+  );
+  const zoomIn = React.useCallback(() => zoomStep(1), [zoomStep]);
+  const zoomOut = React.useCallback(() => zoomStep(-1), [zoomStep]);
+  const zoomPercent = Math.round((hoursZoom / DEFAULT_HOURS_ZOOM) * 100);
+  const canZoomIn = hoursZoom < HOURS_ZOOM_LEVELS[HOURS_ZOOM_LEVELS.length - 1]!;
+  const canZoomOut = hoursZoom > HOURS_ZOOM_LEVELS[0]!;
 
   // View mode: prefer server-synced preference; fall back to localStorage,
   // then to "day".
@@ -360,6 +421,9 @@ export function CalendarView({
     cancelDrag,
   } = useCalendarDnd(selectedDate, {
     snapIntervals,
+    // Drag previews must match the rendered zoom or the ghost detaches
+    // from the cursor in the hours view.
+    hourHeight: viewMode === "hours" ? hoursZoom : undefined,
     onTaskDrop: (taskId, startTime, endTime) => {
       const task = unscheduledTasks.find((t) => t.id === taskId);
       if (task) {
@@ -441,6 +505,7 @@ export function CalendarView({
   // memory transfers cleanly:
   //   H = Hours, D = Day, X = 3 days (their "4 days" key, near enough),
   //   W = Week, M = Month, T = Today, J = previous range, K = next range.
+  //   +/= = zoom in, -/_ = zoom out (hours view only).
   // Skip when focus is in a form field OR when ANY modal/popover is
   // open — without the second guard, pressing "M" while an event
   // detail sheet is open silently switches the calendar view behind
@@ -500,13 +565,21 @@ export function CalendarView({
         case "k":
           goToNextDay();
           break;
+        case "=":
+        case "+":
+          if (viewModeRef.current === "hours") zoomIn();
+          break;
+        case "-":
+        case "_":
+          if (viewModeRef.current === "hours") zoomOut();
+          break;
         default:
           return;
       }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [setViewMode, goToPreviousDay, goToNextDay]);
+  }, [setViewMode, goToPreviousDay, goToNextDay, zoomIn, zoomOut]);
 
   // Mouse handlers for drag
   const handleTimelineMouseMove = (e: React.MouseEvent) => {
@@ -693,6 +766,13 @@ export function CalendarView({
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         timeBlocks={timeBlocks}
+        zoomPercent={zoomPercent}
+        canZoomIn={canZoomIn}
+        canZoomOut={canZoomOut}
+        onZoomIn={zoomIn}
+        onZoomOut={zoomOut}
+        schedulePanelOpen={schedulePanelOpen}
+        onToggleSchedulePanel={toggleSchedulePanel}
         onPreviousDay={goToPreviousDay}
         onNextDay={goToNextDay}
         onToday={goToToday}
@@ -779,6 +859,7 @@ export function CalendarView({
             <Timeline
               date={selectedDate}
               fineGrained={viewMode === "hours"}
+              {...(viewMode === "hours" ? { hourHeight: hoursZoom } : {})}
               timeBlocks={timeBlocks}
               calendarEvents={calendarEvents}
               isLoading={isLoading}
@@ -805,6 +886,11 @@ export function CalendarView({
                   }
                 : {})}
             />
+            {/* Hours view: plain-text schedule panel (breaks excluded),
+                toggleable from the toolbar. */}
+            {viewMode === "hours" && schedulePanelOpen && (
+              <ScheduleTextPanel timeBlocks={timeBlocks} date={selectedDate} />
+            )}
           </>
         )}
 

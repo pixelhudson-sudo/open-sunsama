@@ -69,4 +69,10 @@ export interface CalendarDndOptions {
    * back-to-back schedules while preserving the block's duration.
    */
   snapIntervals?: SnapInterval[];
+  /**
+   * Pixels-per-hour of the rendered timeline (hours-view zoom). Preview
+   * math must use the same scale as the rendered grid or the ghost
+   * detaches from the cursor. Defaults to HOUR_HEIGHT.
+   */
+  hourHeight?: number;
 }
