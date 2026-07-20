@@ -17,6 +17,9 @@ interface QuickCreatePopupProps {
   onOpenChange: (open: boolean) => void;
   date: Date;
   startTime: Date;
+  /** When set from empty-slot click, end time is editable directly.
+   *  When omitted (bottom-handle click), end is derived from start + duration. */
+  endTime?: Date;
 }
 
 export function QuickCreatePopup({
@@ -24,24 +27,34 @@ export function QuickCreatePopup({
   onOpenChange,
   date,
   startTime,
+  endTime,
 }: QuickCreatePopupProps) {
   const [title, setTitle] = React.useState("");
   const [isBreak, setIsBreak] = React.useState(false);
   const [startTimeInput, setStartTimeInput] = React.useState(
     format(startTime, "HH:mm")
   );
-  const [durationInput, setDurationInput] = React.useState("60");
+  const [endTimeInput, setEndTimeInput] = React.useState(
+    endTime ? format(endTime, "HH:mm") : ""
+  );
+  const [durationInput, setDurationInput] = React.useState("");
 
   const createTimeBlock = useCreateTimeBlock();
 
   React.useEffect(() => {
-    if (open) {
-      setTitle("");
-      setIsBreak(false);
-      setStartTimeInput(format(startTime, "HH:mm"));
+    if (!open) return;
+    setTitle("");
+    setIsBreak(false);
+    setStartTimeInput(format(startTime, "HH:mm"));
+    if (endTime) {
+      setEndTimeInput(format(endTime, "HH:mm"));
+      const diff = differenceInMinutes(endTime, startTime);
+      setDurationInput(String(diff));
+    } else {
+      setEndTimeInput("");
       setDurationInput("60");
     }
-  }, [open, startTime, date]);
+  }, [open, startTime, endTime, date]);
 
   const buildTimeDate = (timeInput: string): Date => {
     const [hours, mins] = timeInput.split(":").map(Number);
@@ -50,26 +63,58 @@ export function QuickCreatePopup({
     return d;
   };
 
+  // When duration changes, update end time
   const handleDurationChange = (value: string) => {
     setDurationInput(value);
+    const mins = parseInt(value, 10);
+    if (!isNaN(mins) && mins > 0) {
+      const start = buildTimeDate(startTimeInput);
+      const newEnd = addMinutes(start, mins);
+      setEndTimeInput(format(newEnd, "HH:mm"));
+    }
   };
 
-  const getEndTime = (): Date => {
-    const start = buildTimeDate(startTimeInput);
+  // When start time changes, preserve duration and recompute end
+  const handleStartChange = (value: string) => {
+    setStartTimeInput(value);
     const mins = parseInt(durationInput, 10);
     if (!isNaN(mins) && mins > 0) {
-      return addMinutes(start, mins);
+      const start = buildTimeDate(value);
+      const newEnd = addMinutes(start, mins);
+      setEndTimeInput(format(newEnd, "HH:mm"));
     }
-    return addMinutes(start, 60);
+  };
+
+  // When end time changes, recompute duration
+  const handleEndChange = (value: string) => {
+    setEndTimeInput(value);
+    const start = buildTimeDate(startTimeInput);
+    const end = buildTimeDate(value);
+    if (end.getTime() > start.getTime()) {
+      const diff = differenceInMinutes(end, start);
+      setDurationInput(String(diff));
+    }
+  };
+
+  const getEndTimeValue = (): Date => {
+    if (endTimeInput) {
+      return buildTimeDate(endTimeInput);
+    }
+    const start = buildTimeDate(startTimeInput);
+    const mins = parseInt(durationInput, 10);
+    return addMinutes(start, isNaN(mins) || mins <= 0 ? 60 : mins);
+  };
+
+  const getStartTimeValue = (): Date => {
+    return buildTimeDate(startTimeInput);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() && !isBreak) return;
 
-    const start = buildTimeDate(startTimeInput);
-    const end = getEndTime();
-    const mins = parseInt(durationInput, 10);
+    const start = getStartTimeValue();
+    const end = getEndTimeValue();
 
     await createTimeBlock.mutateAsync({
       title: isBreak ? "" : title.trim(),
@@ -100,7 +145,7 @@ export function QuickCreatePopup({
             />
           </div>
 
-          {/* Duration */}
+          {/* Duration — shows time range */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Duration</Label>
             <div className="flex items-center gap-2">
@@ -114,7 +159,8 @@ export function QuickCreatePopup({
               />
               <span className="text-xs text-muted-foreground">min</span>
               <span className="text-xs text-muted-foreground ml-auto">
-                {format(startTime, "h:mm a")} – {format(getEndTime(), "h:mm a")}
+                {format(getStartTimeValue(), "h:mm a")} –{" "}
+                {format(getEndTimeValue(), "h:mm a")}
               </span>
             </div>
           </div>
@@ -135,13 +181,24 @@ export function QuickCreatePopup({
             <span className="text-sm text-muted-foreground">Break</span>
           </label>
 
-          {/* Start time (editable) */}
+          {/* Start time */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Start</Label>
             <Input
               type="time"
               value={startTimeInput}
-              onChange={(e) => setStartTimeInput(e.target.value)}
+              onChange={(e) => handleStartChange(e.target.value)}
+              className="h-8 w-28 text-sm"
+            />
+          </div>
+
+          {/* End time */}
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">End</Label>
+            <Input
+              type="time"
+              value={endTimeInput}
+              onChange={(e) => handleEndChange(e.target.value)}
               className="h-8 w-28 text-sm"
             />
           </div>

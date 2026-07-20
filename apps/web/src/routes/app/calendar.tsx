@@ -3,7 +3,7 @@ import type { Task, TimeBlock } from "@open-sunsama/types";
 import { CalendarView } from "@/components/calendar";
 import { TaskModal } from "@/components/kanban/task-modal.lazy";
 import { TimeBlockDetailSheet } from "@/components/calendar/time-block-detail-sheet";
-import { CreateTimeBlockDialog } from "@/components/calendar/create-time-block-dialog";
+import { QuickCreatePopup } from "@/components/calendar/quick-create-popup";
 import { useTask } from "@/hooks";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileCalendarView } from "@/components/mobile";
@@ -24,11 +24,11 @@ export default function CalendarPage() {
   const [selectedTimeBlock, setSelectedTimeBlock] = React.useState<TimeBlock | null>(null);
   const [timeBlockSheetOpen, setTimeBlockSheetOpen] = React.useState(false);
   
-  // Create time block dialog state
-  const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
-  const [createDialogDate, setCreateDialogDate] = React.useState<Date>(new Date());
-  const [createDialogStartTime, setCreateDialogStartTime] = React.useState<Date>(new Date());
-  const [createDialogEndTime, setCreateDialogEndTime] = React.useState<Date>(new Date());
+  // Quick-create popup state
+  const [quickCreateOpen, setQuickCreateOpen] = React.useState(false);
+  const [quickCreateDate, setQuickCreateDate] = React.useState<Date>(new Date());
+  const [quickCreateStartTime, setQuickCreateStartTime] = React.useState<Date>(new Date());
+  const [quickCreateEndTime, setQuickCreateEndTime] = React.useState<Date | undefined>();
 
   // Fetch task by ID when viewing from context menu
   const { data: fetchedTask } = useTask(selectedTaskId ?? "");
@@ -82,10 +82,17 @@ export default function CalendarPage() {
   };
 
   const handleTimeSlotClick = (date: Date, startTime: Date, endTime: Date) => {
-    setCreateDialogDate(date);
-    setCreateDialogStartTime(startTime);
-    setCreateDialogEndTime(endTime);
-    setCreateDialogOpen(true);
+    setQuickCreateDate(date);
+    setQuickCreateStartTime(startTime);
+    setQuickCreateEndTime(endTime);
+    setQuickCreateOpen(true);
+  };
+
+  const handleQuickCreate = (date: Date, startTime: Date, endTime?: Date) => {
+    setQuickCreateDate(date);
+    setQuickCreateStartTime(startTime);
+    setQuickCreateEndTime(endTime);
+    setQuickCreateOpen(true);
   };
 
   if (isMobile) {
@@ -111,12 +118,12 @@ export default function CalendarPage() {
           open={timeBlockSheetOpen}
           onOpenChange={handleTimeBlockSheetOpenChange}
         />
-        <CreateTimeBlockDialog
-          open={createDialogOpen}
-          onOpenChange={setCreateDialogOpen}
-          date={createDialogDate}
-          startTime={createDialogStartTime}
-          endTime={createDialogEndTime}
+        <QuickCreatePopup
+          open={quickCreateOpen}
+          onOpenChange={setQuickCreateOpen}
+          date={quickCreateDate}
+          startTime={quickCreateStartTime}
+          endTime={quickCreateEndTime}
         />
       </>
     );
@@ -130,6 +137,7 @@ export default function CalendarPage() {
         onEditBlock={handleEditBlock}
         onViewTask={handleViewTask}
         onTimeSlotClick={handleTimeSlotClick}
+        onQuickCreate={handleQuickCreate}
       />
 
       {/* Task Modal - reused from kanban */}
@@ -146,13 +154,13 @@ export default function CalendarPage() {
         onOpenChange={handleTimeBlockSheetOpenChange}
       />
 
-      {/* Create Time Block Dialog */}
-      <CreateTimeBlockDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-        date={createDialogDate}
-        startTime={createDialogStartTime}
-        endTime={createDialogEndTime}
+      {/* Quick-create popup */}
+      <QuickCreatePopup
+        open={quickCreateOpen}
+        onOpenChange={setQuickCreateOpen}
+        date={quickCreateDate}
+        startTime={quickCreateStartTime}
+        endTime={quickCreateEndTime}
       />
     </div>
   );

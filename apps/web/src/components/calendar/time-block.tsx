@@ -25,8 +25,8 @@ interface TimeBlockProps {
   onEditBlock?: () => void;
   onDragStart?: (e: React.MouseEvent) => void;
   onResizeStart?: (e: React.MouseEvent, edge: "top" | "bottom") => void;
-  /** Double-click the bottom resize handle → create-next chained event */
-  onEndDoubleClick?: () => void;
+  /** Click the bottom resize handle → open quick-create popup */
+  onEndClick?: () => void;
   onViewTask?: (taskId: string) => void;
   isSelected?: boolean;
   isDragging?: boolean;
@@ -80,7 +80,7 @@ export function TimeBlock({
   onEditBlock,
   onDragStart,
   onResizeStart,
-  onEndDoubleClick,
+  onEndClick,
   onViewTask,
   isSelected = false,
   isDragging = false,
@@ -195,7 +195,7 @@ export function TimeBlock({
           )}
         </div>
 
-        {/* Bottom resize handle — also supports double-click for chained creation */}
+        {/* Bottom resize handle — click opens quick-create popup */}
         {canResize && (
           <div
             data-resize="bottom"
@@ -205,9 +205,9 @@ export function TimeBlock({
               "-mb-1 sm:mb-0"
             )}
             onMouseDown={handleBottomResize}
-            onDoubleClick={(e) => {
+            onClick={(e) => {
               e.stopPropagation();
-              onEndDoubleClick?.();
+              onEndClick?.();
             }}
           />
         )}

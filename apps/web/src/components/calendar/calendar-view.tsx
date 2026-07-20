@@ -50,7 +50,7 @@ import { ScheduleTextPanel } from "./schedule-text-panel";
 import { UnscheduledTasksPanel } from "./unscheduled-tasks";
 import { DragOverlay } from "./drag-overlay";
 import { CalendarViewToolbar } from "./calendar-view-toolbar";
-import { QuickCreatePopup } from "./quick-create-popup";
+
 import { CalendarEventDetailSheet } from "./calendar-event-detail-sheet";
 import {
   AddTaskModal,
@@ -157,6 +157,8 @@ interface CalendarViewProps {
   onEditBlock?: (block: TimeBlock) => void;
   onViewTask?: (taskId: string) => void;
   onTimeSlotClick?: (date: Date, startTime: Date, endTime: Date) => void;
+  /** Quick-create popup opened from empty-slot click or block bottom-handle click */
+  onQuickCreate?: (date: Date, startTime: Date, endTime?: Date) => void;
   className?: string;
 }
 
@@ -170,6 +172,7 @@ export function CalendarView({
   onEditBlock,
   onViewTask,
   onTimeSlotClick,
+  onQuickCreate,
   className,
 }: CalendarViewProps) {
   const { user } = useAuth();
@@ -794,10 +797,7 @@ export function CalendarView({
     scheduledDate: string;
   } | null>(null);
 
-  // Quick-create popup (opened by double-clicking a block's bottom handle)
-  const [quickCreateOpen, setQuickCreateOpen] = React.useState(false);
-  const [quickCreateDate, setQuickCreateDate] = React.useState<Date>(new Date());
-  const [quickCreateStartTime, setQuickCreateStartTime] = React.useState<Date>(new Date());
+
 
   const handleCreateTaskFromEvent = React.useCallback(
     (event: CalendarEvent) => {
@@ -976,18 +976,16 @@ export function CalendarView({
               onExternalEventDragStart={handleExternalEventDragStart}
               onExternalEventResizeStart={handleExternalEventResizeStart}
               externalEventCanEdit={externalEventCanEdit}
-              onBlockEndDoubleClick={(blockEnd) => {
-                setQuickCreateDate(selectedDate);
-                setQuickCreateStartTime(blockEnd);
-                setQuickCreateOpen(true);
+              onBlockEndClick={(blockEnd) => {
+                onQuickCreate?.(selectedDate, blockEnd);
               }}
               {...(onBlockClick ? { onBlockClick } : {})}
               {...(onEditBlock ? { onEditBlock } : {})}
               {...(onViewTask ? { onViewTask } : {})}
-              {...(onTimeSlotClick
+              {...(onQuickCreate
                 ? {
                     onTimeSlotClick: (startTime: Date, endTime: Date) =>
-                      onTimeSlotClick(selectedDate, startTime, endTime),
+                      onQuickCreate(selectedDate, startTime, endTime),
                   }
                 : {})}
             />
@@ -1080,13 +1078,6 @@ export function CalendarView({
         initialTitle={taskFromEventSeed?.title}
       />
 
-      {/* Quick-create popup (double-click block bottom handle) */}
-      <QuickCreatePopup
-        open={quickCreateOpen}
-        onOpenChange={setQuickCreateOpen}
-        date={quickCreateDate}
-        startTime={quickCreateStartTime}
-      />
     </div>
   );
 }
