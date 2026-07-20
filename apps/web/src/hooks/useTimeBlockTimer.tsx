@@ -131,13 +131,14 @@ export function useCascadeResizeTimeBlock() {
       id,
       startTime,
       endTime,
+      mode,
     }: {
       id: string;
       startTime: Date;
       endTime: Date;
+      mode?: 'chain' | 'all-downstream';
     }) => {
-      // Use the server-side cascade resize endpoint
-      return api.timeBlocks.cascadeResize(id, { startTime, endTime });
+      return api.timeBlocks.cascadeResize(id, { startTime, endTime, mode });
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: timeBlockKeys.lists() });

@@ -123,10 +123,12 @@ export function TimeBlockDetailSheet({
       newEndTime.getTime() !== currentEnd.getTime();
 
     if (timeChanged) {
+      const mode = isDurationLocked ? 'all-downstream' : 'chain';
       await cascadeResizeTimeBlock.mutateAsync({
         id: timeBlock.id,
         startTime: newStartTime,
         endTime: newEndTime,
+        mode,
       });
     }
   };

@@ -381,7 +381,7 @@ timeBlocksRouter.patch('/:id', requireScopes('time-blocks:write'), zValidator('p
 timeBlocksRouter.patch('/:id/cascade-resize', requireScopes('time-blocks:write'), zValidator('param', z.object({ id: uuidSchema })), zValidator('json', cascadeResizeSchema), async (c) => {
   const userId = c.get('userId');
   const { id } = c.req.valid('param');
-  const { startTime: newStartTime, endTime: newEndTime } = c.req.valid('json');
+  const { startTime: newStartTime, endTime: newEndTime, mode } = c.req.valid('json');
   const db = getDb();
 
   // Fetch the target block
@@ -412,22 +412,23 @@ timeBlocksRouter.patch('/:id/cascade-resize', requireScopes('time-blocks:write')
     .where(and(eq(timeBlocks.userId, userId), eq(timeBlocks.date, targetDate)))
     .orderBy(asc(timeBlocks.startTime));
 
-  // Chain cascade: blocks connected by touching boundaries move together.
+  // Cascade: walk the connected chain or shift all downstream blocks.
   //
-  // A block is "downstream-connected" to the target when its start time
-  // equals the target's (or another shifted block's) ORIGINAL end time,
-  // and "upstream-connected" when its end time equals the target's (or
-  // another shifted block's) ORIGINAL start time. The changed boundary
-  // propagates its delta through the chain — every connected block shifts
-  // by the same delta while keeping its own duration:
+  // Mode "chain" (default for drag move/resize): blocks connected by
+  // touching boundaries move together. A block is "downstream-connected"
+  // when its start equals the target's (or another shifted block's)
+  // ORIGINAL end time, and "upstream-connected" when its end equals the
+  // target's ORIGINAL start. The changed boundary propagates its delta
+  // through the chain — every connected block shifts by the same delta
+  // while keeping its own duration:
+  //   - move (both boundaries shift equally): whole connected chain
+  //   - resize end: downstream chain follows
+  //   - resize start: upstream chain follows
   //
-  //   - move (both boundaries shift equally): the whole connected chain
-  //     moves rigidly in both directions
-  //   - resize end / edit end only: the downstream chain follows
-  //   - resize start / edit start only: the upstream chain follows
-  //
-  // Editing the first block of a back-to-back day therefore ripples
-  // through every consecutively connected block.
+  // Mode "all-downstream" (sidebar start-time edit): ALL blocks starting
+  // at or after the target's original end shift by the downstream delta,
+  // regardless of adjacency. The upstream walk still uses chain logic so
+  // the block physically touching the target's start boundary follows.
   const originalEndTime = targetBlock.endTime;
   const oldStartMinutes = timeToMinutes(originalStartTime);
   const oldEndMinutes = timeToMinutes(originalEndTime);
@@ -459,28 +460,16 @@ timeBlocksRouter.patch('/:id/cascade-resize', requireScopes('time-blocks:write')
   const otherBlocks = allBlocks.filter((block) => block.id !== id);
   const moved = new Set<string>();
 
-  // Walk one direction of the chain. `boundaryOf` picks the touching
-  // boundary used for matching, `continuationOf` the boundary that
-  // extends the chain. Guards the day boundary: a block that would be
-  // pushed past midnight is left in place and the chain stops at it
-  // (rather than wrapping it into the early morning).
-  const walkChain = (
-    delta: number,
-    anchorMinutes: number,
-    boundaryOf: (block: (typeof otherBlocks)[number]) => number,
-    continuationOf: (block: (typeof otherBlocks)[number]) => number
-  ) => {
-    if (delta === 0) return;
-    let frontier = new Set([anchorMinutes]);
-    while (frontier.size > 0) {
-      const next = new Set<number>();
+  if (mode === 'all-downstream') {
+    // Shift ALL downstream blocks (regardless of adjacency), plus chain-
+    // based upstream shift for the block touching the target's start.
+    if (downstreamDelta !== 0) {
       for (const block of otherBlocks) {
-        if (moved.has(block.id)) continue;
-        if (!frontier.has(boundaryOf(block))) continue;
         const blockStart = timeToMinutes(block.startTime);
         const blockEnd = timeToMinutes(block.endTime);
-        const shiftedStart = blockStart + delta;
-        const shiftedEnd = blockEnd + delta;
+        if (blockStart < oldEndMinutes) continue;
+        const shiftedStart = blockStart + downstreamDelta;
+        const shiftedEnd = blockEnd + downstreamDelta;
         if (shiftedStart < 0 || shiftedEnd > 24 * 60) continue;
         moved.add(block.id);
         updates.push({
@@ -495,26 +484,87 @@ timeBlocksRouter.patch('/:id/cascade-resize', requireScopes('time-blocks:write')
           startTime: block.startTime,
           endTime: block.endTime,
         });
-        next.add(continuationOf(block));
       }
-      frontier = next;
     }
-  };
+    // Upstream chain: block whose END touches the target's ORIGINAL start.
+    if (upstreamDelta !== 0) {
+      for (const block of otherBlocks) {
+        if (moved.has(block.id)) continue;
+        if (timeToMinutes(block.endTime) !== oldStartMinutes) continue;
+        const blockStart = timeToMinutes(block.startTime);
+        const blockEnd = timeToMinutes(block.endTime);
+        const shiftedStart = blockStart + upstreamDelta;
+        const shiftedEnd = blockEnd + upstreamDelta;
+        if (shiftedStart < 0 || shiftedEnd > 24 * 60) continue;
+        moved.add(block.id);
+        updates.push({
+          id: block.id,
+          startTime: minutesToTime(shiftedStart),
+          endTime: minutesToTime(shiftedEnd),
+          durationMins: blockEnd - blockStart,
+        });
+        previous.push({
+          id: block.id,
+          date: block.date,
+          startTime: block.startTime,
+          endTime: block.endTime,
+        });
+      }
+    }
+  } else {
+    // Chain mode: walk connected blocks via BFS touching boundaries.
+    const walkChain = (
+      delta: number,
+      anchorMinutes: number,
+      boundaryOf: (block: (typeof otherBlocks)[number]) => number,
+      continuationOf: (block: (typeof otherBlocks)[number]) => number
+    ) => {
+      if (delta === 0) return;
+      let frontier = new Set([anchorMinutes]);
+      while (frontier.size > 0) {
+        const next = new Set<number>();
+        for (const block of otherBlocks) {
+          if (moved.has(block.id)) continue;
+          if (!frontier.has(boundaryOf(block))) continue;
+          const blockStart = timeToMinutes(block.startTime);
+          const blockEnd = timeToMinutes(block.endTime);
+          const shiftedStart = blockStart + delta;
+          const shiftedEnd = blockEnd + delta;
+          if (shiftedStart < 0 || shiftedEnd > 24 * 60) continue;
+          moved.add(block.id);
+          updates.push({
+            id: block.id,
+            startTime: minutesToTime(shiftedStart),
+            endTime: minutesToTime(shiftedEnd),
+            durationMins: blockEnd - blockStart,
+          });
+          previous.push({
+            id: block.id,
+            date: block.date,
+            startTime: block.startTime,
+            endTime: block.endTime,
+          });
+          next.add(continuationOf(block));
+        }
+        frontier = next;
+      }
+    };
 
-  // Downstream: blocks whose START touches the target's ORIGINAL end.
-  walkChain(
-    downstreamDelta,
-    oldEndMinutes,
-    (block) => timeToMinutes(block.startTime),
-    (block) => timeToMinutes(block.endTime)
-  );
-  // Upstream: blocks whose END touches the target's ORIGINAL start.
-  walkChain(
-    upstreamDelta,
-    oldStartMinutes,
-    (block) => timeToMinutes(block.endTime),
-    (block) => timeToMinutes(block.startTime)
-  );
+    // Downstream: blocks whose START touches the target's ORIGINAL end.
+    walkChain(
+      downstreamDelta,
+      oldEndMinutes,
+      (block) => timeToMinutes(block.startTime),
+      (block) => timeToMinutes(block.endTime)
+    );
+    // Upstream: blocks whose END touches the target's ORIGINAL start.
+    walkChain(
+      upstreamDelta,
+      oldStartMinutes,
+      (block) => timeToMinutes(block.endTime),
+      (block) => timeToMinutes(block.startTime)
+    );
+  }
 
   // Execute all updates in a single transaction
   const updatedBlocks = await db.transaction(async (tx) => {

@@ -50,6 +50,7 @@ import { ScheduleTextPanel } from "./schedule-text-panel";
 import { UnscheduledTasksPanel } from "./unscheduled-tasks";
 import { DragOverlay } from "./drag-overlay";
 import { CalendarViewToolbar } from "./calendar-view-toolbar";
+import { QuickCreatePopup } from "./quick-create-popup";
 import { CalendarEventDetailSheet } from "./calendar-event-detail-sheet";
 import {
   AddTaskModal,
@@ -793,6 +794,11 @@ export function CalendarView({
     scheduledDate: string;
   } | null>(null);
 
+  // Quick-create popup (opened by double-clicking a block's bottom handle)
+  const [quickCreateOpen, setQuickCreateOpen] = React.useState(false);
+  const [quickCreateDate, setQuickCreateDate] = React.useState<Date>(new Date());
+  const [quickCreateStartTime, setQuickCreateStartTime] = React.useState<Date>(new Date());
+
   const handleCreateTaskFromEvent = React.useCallback(
     (event: CalendarEvent) => {
       const start = new Date(event.startTime);
@@ -971,8 +977,9 @@ export function CalendarView({
               onExternalEventResizeStart={handleExternalEventResizeStart}
               externalEventCanEdit={externalEventCanEdit}
               onBlockEndDoubleClick={(blockEnd) => {
-                const end = new Date(blockEnd.getTime() + 60 * 60 * 1000);
-                onTimeSlotClick?.(selectedDate, blockEnd, end);
+                setQuickCreateDate(selectedDate);
+                setQuickCreateStartTime(blockEnd);
+                setQuickCreateOpen(true);
               }}
               {...(onBlockClick ? { onBlockClick } : {})}
               {...(onEditBlock ? { onEditBlock } : {})}
@@ -1071,6 +1078,14 @@ export function CalendarView({
         }}
         scheduledDate={taskFromEventSeed?.scheduledDate}
         initialTitle={taskFromEventSeed?.title}
+      />
+
+      {/* Quick-create popup (double-click block bottom handle) */}
+      <QuickCreatePopup
+        open={quickCreateOpen}
+        onOpenChange={setQuickCreateOpen}
+        date={quickCreateDate}
+        startTime={quickCreateStartTime}
       />
     </div>
   );

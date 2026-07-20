@@ -116,6 +116,7 @@ export function calculateEndTime(startTime: string, durationMins: number): strin
 export const cascadeResizeSchema = z.object({
   startTime: timeSchema,
   endTime: timeSchema,
+  mode: z.enum(['chain', 'all-downstream']).optional().default('chain'),
 }).refine(
   (data) => {
     const startMinutes = parseTimeToMinutes(data.startTime);
