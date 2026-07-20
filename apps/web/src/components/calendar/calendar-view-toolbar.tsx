@@ -1,5 +1,5 @@
 import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Coffee, Printer, ZoomIn, ZoomOut, PanelRightClose, PanelRightOpen, FileDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Printer, ZoomIn, ZoomOut, PanelRightClose, PanelRightOpen, FileDown } from "lucide-react";
 import { Button, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui";
 import type { TimeBlock, CalendarViewMode } from "@open-sunsama/types";
 import { cn } from "@/lib/utils";
@@ -26,7 +26,6 @@ interface CalendarViewToolbarProps {
   onPreviousDay: () => void;
   onNextDay: () => void;
   onToday: () => void;
-  onAddBreak?: () => void;
   onPrintSchedule?: () => void;
   /** Template management */
   templates?: TemplateItem[];
@@ -34,6 +33,8 @@ interface CalendarViewToolbarProps {
   onLoadTemplate?: (id: string) => void;
   onRenameTemplate?: (id: string) => void;
   onDownloadTemplate?: (id: string) => void;
+  onDeleteTemplate?: (id: string) => void;
+  onOverwriteTemplate?: (id: string) => void;
   className?: string;
 }
 
@@ -101,13 +102,14 @@ export function CalendarViewToolbar({
   onPreviousDay,
   onNextDay,
   onToday,
-  onAddBreak,
   onPrintSchedule,
   templates = [],
   onSaveAsTemplate,
   onLoadTemplate,
   onRenameTemplate,
   onDownloadTemplate,
+  onDeleteTemplate,
+  onOverwriteTemplate,
 }: CalendarViewToolbarProps) {
   const today = new Date();
   const todayInRange = isWithinInterval(today, {
@@ -257,12 +259,7 @@ export function CalendarViewToolbar({
                   <span className="hidden sm:inline">Templates</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-[180px]">
-                {templates.length > 0 && (
-                  <DropdownMenuLabel className="text-[10px] uppercase tracking-wider">
-                    {templates.length} template{templates.length !== 1 ? "s" : ""}
-                  </DropdownMenuLabel>
-                )}
+              <DropdownMenuContent align="end" className="min-w-[200px]">
                 <DropdownMenuItem onClick={onSaveAsTemplate}>
                   Save as template…
                 </DropdownMenuItem>
@@ -271,61 +268,48 @@ export function CalendarViewToolbar({
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Load
+                      {templates.length} template{templates.length !== 1 ? "s" : ""}
                     </DropdownMenuLabel>
-                    {templates.map((t) => (
-                      <DropdownMenuItem
-                        key={t.id}
-                        onClick={() => onLoadTemplate?.(t.id)}
-                        className="pl-6 text-xs"
-                      >
-                        {t.name}
-                      </DropdownMenuItem>
-                    ))}
-
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Rename
-                    </DropdownMenuLabel>
-                    {templates.map((t) => (
-                      <DropdownMenuItem
-                        key={t.id}
-                        onClick={() => onRenameTemplate?.(t.id)}
-                        className="pl-6 text-xs"
-                      >
-                        {t.name}
-                      </DropdownMenuItem>
-                    ))}
-
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Download
-                    </DropdownMenuLabel>
-                    {templates.map((t) => (
-                      <DropdownMenuItem
-                        key={t.id}
-                        onClick={() => onDownloadTemplate?.(t.id)}
-                        className="pl-6 text-xs"
-                      >
-                        {t.name}
-                      </DropdownMenuItem>
-                    ))}
+                    {[...templates]
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((t) => (
+                        <DropdownMenuSub key={t.id}>
+                          <DropdownMenuSubTrigger
+                            className="text-xs"
+                            onClick={() => onLoadTemplate?.(t.id)}
+                          >
+                            {t.name}
+                          </DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent className="min-w-[130px]">
+                            <DropdownMenuItem
+                              onClick={(e) => { e.stopPropagation(); onLoadTemplate?.(t.id); }}
+                            >
+                              Load
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => { e.stopPropagation(); onRenameTemplate?.(t.id); }}
+                            >
+                              Rename
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => { e.stopPropagation(); onOverwriteTemplate?.(t.id); }}
+                            >
+                              Overwrite
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => { e.stopPropagation(); onDeleteTemplate?.(t.id); }}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                      ))}
                   </>
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onAddBreak}
-            aria-label="Add break"
-            className="h-9 px-2.5 text-xs gap-1.5"
-          >
-            <Coffee className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Break</span>
-          </Button>
           <Button
             variant="outline"
             size="sm"

@@ -21,6 +21,7 @@ export interface ScheduleTemplatesApi {
   get(id: string, options?: RequestOptions): Promise<ScheduleTemplate>;
   create(input: CreateScheduleTemplateInput, options?: RequestOptions): Promise<ScheduleTemplate>;
   update(id: string, input: UpdateScheduleTemplateInput, options?: RequestOptions): Promise<ScheduleTemplate>;
+  delete(id: string, options?: RequestOptions): Promise<{ id: string }>;
 }
 
 export function createScheduleTemplatesApi(client: OpenSunsamaClient): ScheduleTemplatesApi {
@@ -42,6 +43,11 @@ export function createScheduleTemplatesApi(client: OpenSunsamaClient): ScheduleT
 
     async update(id: string, input: UpdateScheduleTemplateInput, options?: RequestOptions): Promise<ScheduleTemplate> {
       const res = await client.patch<ApiResponseWrapper<ScheduleTemplate>>(`schedule-templates/${id}`, input, options);
+      return res.data;
+    },
+
+    async delete(id: string, options?: RequestOptions): Promise<{ id: string }> {
+      const res = await client.delete<ApiResponseWrapper<{ id: string }>>(`schedule-templates/${id}`, options);
       return res.data;
     },
   };

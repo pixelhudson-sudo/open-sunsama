@@ -102,6 +102,8 @@ export function ScheduleTextPanel({
   const [fontSize, setFontSize] = React.useState(getStoredFontSize);
   const [finalMessage, setFinalMessage] = React.useState("");
   const [finalMsgHeight, setFinalMsgHeight] = React.useState(getStoredFinalMsgHeight);
+  const [convertSource, setConvertSource] = React.useState("");
+  const [convertResult, setConvertResult] = React.useState("");
   const [draggingMsgHeight, setDraggingMsgHeight] = React.useState(false);
   const updateTimeBlock = useUpdateTimeBlock();
   const cascadeResizeTimeBlock = useCascadeResizeTimeBlock();
@@ -289,6 +291,51 @@ export function ScheduleTextPanel({
   const handleClear = React.useCallback(() => {
     setFinalMessage("");
   }, []);
+
+  // Convert — auto-detect direction Chinese ↔ English
+  const handleConvert = React.useCallback(async () => {
+    const src = convertSource.trim();
+    const dst = convertResult.trim();
+    if (!src && !dst) return;
+    let text: string;
+    let target: string;
+    if (src && !dst) {
+      // only source filled → translate to other language
+      text = src;
+      const isChinese = /[\u4e00-\u9fff]/.test(text);
+      target = isChinese ? "en" : "zh-TW";
+      const api = getApi();
+      const translated = await api.translate(text, target);
+      setConvertResult(translated);
+    } else if (dst && !src) {
+      // only result filled → treat as source, flip direction
+      text = dst;
+      const isChinese = /[\u4e00-\u9fff]/.test(text);
+      target = isChinese ? "en" : "zh-TW";
+      const api = getApi();
+      const translated = await api.translate(text, target);
+      setConvertSource(translated);
+    } else {
+      // both filled → auto-detect source: if one is Chinese and other is English
+      const srcIsChinese = /[\u4e00-\u9fff]/.test(src);
+      const dstIsChinese = /[\u4e00-\u9fff]/.test(dst);
+      if (srcIsChinese && !dstIsChinese) {
+        // src=Chinese → translate to English in dst
+        const api = getApi();
+        const translated = await api.translate(src, "en");
+        setConvertResult(translated);
+      } else if (!srcIsChinese && dstIsChinese) {
+        // src=English → translate to Chinese in dst
+        const api = getApi();
+        const translated = await api.translate(src, "zh-TW");
+        setConvertResult(translated);
+      } else {
+        // same language in both or can't detect → swap
+        setConvertSource(convertResult);
+        setConvertResult(convertSource);
+      }
+    }
+  }, [convertSource, convertResult]);
 
   // Final message height drag
   const handleFinalMsgHeightMouseDown = React.useCallback((e: React.MouseEvent) => {
@@ -507,6 +554,33 @@ export function ScheduleTextPanel({
             CN2
           </Button>
         </div>
+      </div>
+
+      {/* Convert boxes */}
+      <div className="border-t px-3 py-2 space-y-2">
+        <Label className="text-[10px] text-muted-foreground">Translate</Label>
+        <textarea
+          className="w-full text-xs bg-transparent border border-border rounded px-2 py-1.5 resize-none h-16"
+          placeholder="Source text (Chinese or English)"
+          value={convertSource}
+          onChange={(e) => setConvertSource(e.target.value)}
+        />
+        <div className="flex items-center gap-1">
+          <Button
+            size="sm"
+            className="h-6 text-[10px] flex-1"
+            onClick={handleConvert}
+            disabled={translating || (!convertSource.trim() && !convertResult.trim())}
+          >
+            {translating ? "Translating..." : "Convert ↻"}
+          </Button>
+        </div>
+        <textarea
+          className="w-full text-xs bg-transparent border border-border rounded px-2 py-1.5 resize-none h-16"
+          placeholder="Result"
+          value={convertResult}
+          onChange={(e) => setConvertResult(e.target.value)}
+        />
       </div>
     </div>
   );

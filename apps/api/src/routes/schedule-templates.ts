@@ -81,4 +81,15 @@ scheduleTemplatesRouter.patch('/:id', requireScopes('time-blocks:write'), zValid
   return c.json({ success: true, data: updated });
 });
 
+/** DELETE /schedule-templates/:id - Delete a template */
+scheduleTemplatesRouter.delete('/:id', requireScopes('time-blocks:write'), zValidator('param', z.object({ id: uuidSchema })), async (c) => {
+  const userId = c.get('userId');
+  const { id } = c.req.valid('param');
+  const db = getDb();
+  const [existing] = await db.select().from(scheduleTemplates).where(and(eq(scheduleTemplates.id, id), eq(scheduleTemplates.userId, userId))).limit(1);
+  if (!existing) throw new NotFoundError('Schedule template', id);
+  await db.delete(scheduleTemplates).where(and(eq(scheduleTemplates.id, id), eq(scheduleTemplates.userId, userId)));
+  return c.json({ success: true, data: { id } });
+});
+
 export { scheduleTemplatesRouter };

@@ -17,11 +17,13 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
+  Label,
 } from "@/components/ui";
 import { PriorityBadge } from "@/components/ui/priority-badge";
 import { SubtaskItem } from "@/components/ui/subtask-item";
 import {
   TimeBlockTitleSection,
+  DurationInputSection,
   TimeRangeSection,
   ColorSection,
 } from "./time-block-form-sections";
@@ -246,14 +248,43 @@ export function TimeBlockDetailSheet({
         </SheetHeader>
 
         <div className="flex-1 space-y-4 overflow-y-auto">
-          {/* Title */}
+          {/* Title — Enter to save */}
           <TimeBlockTitleSection
             title={title}
             onChange={setTitle}
             onBlur={handleTitleBlur}
           />
 
-          {/* Time — start bigger/bold, duration after end */}
+          {/* Duration in minutes */}
+          <DurationInputSection
+            minutes={durationMins}
+            onChange={(mins) => {
+              if (mins <= 0 || !timeBlock) return;
+              const start = new Date(timeBlock.startTime);
+              const newEnd = new Date(start.getTime() + mins * 60000);
+              const newEndStr = format(newEnd, "HH:mm");
+              setEndTime(newEndStr);
+              cascadeResizeTimeBlock.mutate({
+                id: timeBlock.id,
+                startTime: start,
+                endTime: newEnd,
+              });
+            }}
+            onBlur={handleTimeBlur}
+          />
+
+          {/* Break checkbox */}
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <Checkbox
+              checked={isBreak}
+              onCheckedChange={(checked) =>
+                handleBreakChange(checked === true)
+              }
+            />
+            <span className="text-sm text-muted-foreground">Break</span>
+          </label>
+
+          {/* Start and end time with Xh Ym */}
           <TimeRangeSection
             startTime={startTime}
             endTime={endTime}
@@ -264,49 +295,30 @@ export function TimeBlockDetailSheet({
             onBlur={handleTimeBlur}
           />
 
-          {/* Flags */}
-          <div className="space-y-3">
-            <label className="flex items-center gap-2.5 cursor-pointer select-none">
-              <Checkbox
-                checked={isBreak}
-                onCheckedChange={(checked) =>
-                  handleBreakChange(checked === true)
-                }
-                className="mt-0.5"
-              />
-              <span className="flex flex-col">
-                <span className="flex items-center gap-1.5 text-sm">
-                  Break
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  Marks time as a break in your schedule.
-                </span>
+          {/* Lock duration */}
+          <label className="flex items-start gap-2.5 cursor-pointer select-none">
+            <Checkbox
+              checked={isDurationLocked}
+              onCheckedChange={(checked) =>
+                handleDurationLockedChange(checked === true)
+              }
+              className="mt-0.5"
+            />
+            <span className="flex flex-col">
+              <span className="flex items-center gap-1.5 text-sm">
+                <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                Lock duration
               </span>
-            </label>
-            <label className="flex items-start gap-2.5 cursor-pointer select-none">
-              <Checkbox
-                checked={isDurationLocked}
-                onCheckedChange={(checked) =>
-                  handleDurationLockedChange(checked === true)
-                }
-                className="mt-0.5"
-              />
-              <span className="flex flex-col">
-                <span className="flex items-center gap-1.5 text-sm">
-                  <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-                  Lock duration
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  Resizing is disabled; moving keeps the duration.
-                </span>
+              <span className="text-xs text-muted-foreground">
+                Resizing is disabled; moving keeps the duration.
               </span>
-            </label>
-          </div>
+            </span>
+          </label>
 
           {/* Color */}
           <ColorSection color={color} onChange={handleColorChange} />
 
-          {/* Subtasks - only show if task has subtasks */}
+          {/* Subtasks */}
           {subtasks.length > 0 && (
             <div className="space-y-1.5">
               <span className="text-xs text-muted-foreground">Subtasks</span>

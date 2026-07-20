@@ -19,9 +19,38 @@ export function TimeBlockTitleSection({
       value={title}
       onChange={(e) => onChange(e.target.value)}
       onBlur={onBlur}
+      onKeyDown={(e) => { if (e.key === "Enter") { (e.target as HTMLInputElement).blur(); } }}
       className="border-none shadow-none text-base font-medium p-0 h-auto focus-visible:ring-0 bg-transparent"
       placeholder="Time block title"
     />
+  );
+}
+
+interface DurationInputProps {
+  minutes: number;
+  onChange: (minutes: number) => void;
+  onBlur: () => void;
+}
+
+export function DurationInputSection({
+  minutes,
+  onChange,
+  onBlur,
+}: DurationInputProps) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs text-muted-foreground">Duration (minutes)</Label>
+      <Input
+        type="number"
+        min={1}
+        max={1440}
+        value={minutes}
+        onChange={(e) => onChange(parseInt(e.target.value, 10) || 0)}
+        onBlur={onBlur}
+        onKeyDown={(e) => { if (e.key === "Enter") { (e.target as HTMLInputElement).blur(); } }}
+        className="h-8 w-24 text-sm"
+      />
+    </div>
   );
 }
 
@@ -54,27 +83,32 @@ export function TimeRangeSection({
   };
 
   return (
-    <div className="flex items-center gap-2 text-sm">
-      <Input
-        type="time"
-        value={startTime}
-        onChange={(e) => onStartTimeChange(e.target.value)}
-        onBlur={onBlur}
-        className="h-8 w-24 text-base font-semibold"
-      />
-      <span className="text-muted-foreground/60">–</span>
-      <Input
-        type="time"
-        value={endTime}
-        onChange={(e) => onEndTimeChange(e.target.value)}
-        onBlur={onBlur}
-        disabled={endDisabled}
-        className={cn("h-8 w-24 text-sm", endDisabled && "opacity-50")}
-        title={endDisabled ? "Duration is locked — end time follows the start" : undefined}
-      />
-      <span className="text-xs text-muted-foreground ml-1 font-medium">
-        {formatDuration()}
-      </span>
+    <div className="space-y-1.5">
+      <Label className="text-xs text-muted-foreground">Time</Label>
+      <div className="flex items-center gap-2 text-sm">
+        <Input
+          type="time"
+          value={startTime}
+          onChange={(e) => onStartTimeChange(e.target.value)}
+          onBlur={onBlur}
+          onKeyDown={(e) => { if (e.key === "Enter") { (e.target as HTMLInputElement).blur(); } }}
+          className="h-8 w-24 text-sm"
+        />
+        <span className="text-muted-foreground/60">–</span>
+        <Input
+          type="time"
+          value={endTime}
+          onChange={(e) => onEndTimeChange(e.target.value)}
+          onBlur={onBlur}
+          onKeyDown={(e) => { if (e.key === "Enter") { (e.target as HTMLInputElement).blur(); } }}
+          disabled={endDisabled}
+          className={cn("h-8 w-24 text-sm", endDisabled && "opacity-50")}
+          title={endDisabled ? "Duration is locked — end time follows the start" : undefined}
+        />
+        <span className="text-xs text-muted-foreground ml-auto font-semibold">
+          {formatDuration()}
+        </span>
+      </div>
     </div>
   );
 }

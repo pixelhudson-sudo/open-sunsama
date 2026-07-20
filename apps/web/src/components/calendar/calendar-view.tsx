@@ -603,7 +603,59 @@ export function CalendarView({
       });
     }
   }, [templates, templateItemsCache]);
- 
+
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const api = getApi();
+      return api.scheduleTemplates.delete(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: templateKeys.lists() });
+      toast({ title: "Template deleted" });
+    },
+    onError: (err) => {
+      toast({
+        variant: "destructive",
+        title: "Failed to delete template",
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    },
+  });
+
+  const handleDeleteTemplate = React.useCallback((templateId: string) => {
+    const t = templates.find((t) => t.id === templateId);
+    const name = t?.name ?? "this template";
+    if (window.confirm(`Delete "${name}"?`)) {
+      deleteTemplateMutation.mutate(templateId);
+    }
+  }, [templates, deleteTemplateMutation]);
+
+  const handleOverwriteTemplate = React.useCallback(async (templateId: string) => {
+    try {
+      const api = getApi();
+      const dayBlocks = dayTimeBlocks
+        .filter((b) => isSameDay(new Date(b.startTime), selectedDate))
+        .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+      const items = dayBlocks.map((b) => ({
+        title: b.title,
+        startTime: format(new Date(b.startTime), "HH:mm"),
+        endTime: format(new Date(b.endTime), "HH:mm"),
+        color: b.color,
+        isBreak: b.isBreak,
+        isDurationLocked: b.isDurationLocked,
+      }));
+      await api.scheduleTemplates.update(templateId, { items });
+      queryClient.invalidateQueries({ queryKey: templateKeys.lists() });
+      toast({ title: "Template overwritten" });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Failed to overwrite template",
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    }
+  }, [dayTimeBlocks, selectedDate, queryClient]);
+  
   // Filter tasks that don't have a time block on this day
   const unscheduledTasks = React.useMemo(() => {
     const blockedTaskIds = new Set(
@@ -995,29 +1047,8 @@ export function CalendarView({
         onLoadTemplate={handleLoadTemplate}
         onRenameTemplate={handleRenameTemplate}
         onDownloadTemplate={handleDownloadTemplate}
-        onAddBreak={() => {
-          const dayBlocks = dayTimeBlocks.slice().sort(
-            (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
-          );
-          let start: Date;
-          if (dayBlocks.length > 0) {
-            const last = dayBlocks[dayBlocks.length - 1];
-            start = last ? new Date(last.endTime) : new Date();
-          } else {
-            const now = new Date();
-            const mins = now.getMinutes();
-            const roundedMins = Math.ceil(mins / 15) * 15;
-            start = new Date(now.setMinutes(roundedMins, 0, 0));
-          }
-          const end = new Date(start.getTime() + 15 * 60 * 1000);
-          createTimeBlock.mutate({
-            title: "Break",
-            startTime: start,
-            endTime: end,
-            color: "#9CA3AF",
-            isBreak: true,
-          });
-        }}
+        onDeleteTemplate={handleDeleteTemplate}
+        onOverwriteTemplate={handleOverwriteTemplate}
         onPrintSchedule={() => {
           const dayBlocks = dayTimeBlocks.slice().sort(
             (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
