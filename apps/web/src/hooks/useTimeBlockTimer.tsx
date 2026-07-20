@@ -3,6 +3,7 @@ import type { TimeBlock } from "@open-sunsama/types";
 import { toast } from "@/hooks/use-toast";
 import { timeBlockKeys } from "@/lib/query-keys";
 import { ToastAction } from "@/components/ui";
+import { pushUndo } from "./useUndoStack";
 import { useUpdateTimeBlock } from "./useTimeBlockMutations";
 import { useApiClient } from "@/lib/api";
 
@@ -167,6 +168,8 @@ export function useCascadeResizeTimeBlock() {
           });
         }
       };
+
+      pushUndo(`Resize (${previous.length} blocks)`, restore);
 
       toast({
         title: "Schedule updated",

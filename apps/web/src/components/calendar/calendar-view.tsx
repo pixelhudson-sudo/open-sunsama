@@ -50,6 +50,7 @@ import { MultiDayView } from "./multi-day-view";
 import { MonthView } from "./month-view";
 import { ScheduleTextPanel } from "./schedule-text-panel";
 import { AllTasksPanel } from "./all-tasks-panel";
+import { useUndoStack } from "@/hooks/useUndoStack";
 import { DragOverlay } from "./drag-overlay";
 import { CalendarViewToolbar } from "./calendar-view-toolbar";
 
@@ -757,6 +758,9 @@ export function CalendarView({
     },
   });
 
+  // Undo stack
+  const undo = useUndoStack();
+
   // Navigation handlers — step size depends on view mode.
   // Hours/Day → ±1 day; 3-Day → ±3 days; Week → ±1 week; Month → ±1 month.
   const goToPreviousDay = React.useCallback(() => {
@@ -1062,6 +1066,8 @@ export function CalendarView({
         onDeleteTemplate={handleDeleteTemplate}
         onOverwriteTemplate={handleOverwriteTemplate}
         onClearAll={handleClearAll}
+        undoCount={undo.count}
+        onUndo={undo.undo}
         onPrintSchedule={() => {
           const dayBlocks = dayTimeBlocks.slice().sort(
             (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()

@@ -1,5 +1,5 @@
 import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Printer, ZoomIn, ZoomOut, PanelRightClose, PanelRightOpen, FileDown, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Printer, ZoomIn, ZoomOut, PanelRightClose, PanelRightOpen, FileDown, Trash2, Undo2 } from "lucide-react";
 import { Button, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel, Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui";
 import type { TimeBlock, CalendarViewMode } from "@open-sunsama/types";
 import { cn } from "@/lib/utils";
@@ -28,6 +28,8 @@ interface CalendarViewToolbarProps {
   onToday: () => void;
   onClearAll?: () => void;
   onPrintSchedule?: () => void;
+  undoCount?: number;
+  onUndo?: () => void;
   /** Template management */
   templates?: TemplateItem[];
   onSaveAsTemplate?: () => void;
@@ -105,6 +107,8 @@ export function CalendarViewToolbar({
   onToday,
   onClearAll,
   onPrintSchedule,
+  undoCount = 0,
+  onUndo,
   templates = [],
   onSaveAsTemplate,
   onLoadTemplate,
@@ -345,6 +349,21 @@ export function CalendarViewToolbar({
             >
               <Trash2 className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Clear all</span>
+            </Button>
+          )}
+
+          {/* Undo button with count */}
+          {undoCount > 0 && onUndo && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onUndo}
+              aria-label={`Undo (${undoCount} available)`}
+              className="h-9 px-2.5 text-xs gap-1.5"
+            >
+              <Undo2 className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Undo</span>
+              <span className="text-[10px] text-muted-foreground">({undoCount})</span>
             </Button>
           )}
 

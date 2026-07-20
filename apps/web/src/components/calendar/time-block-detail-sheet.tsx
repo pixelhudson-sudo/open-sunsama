@@ -132,6 +132,7 @@ export function TimeBlockDetailSheet({
         id: timeBlock.id,
         startTime: newStartTime,
         endTime: newEndTime,
+        mode: 'all-downstream',
       });
     }
   };
