@@ -655,6 +655,18 @@ export function CalendarView({
       });
     }
   }, [dayTimeBlocks, selectedDate, queryClient]);
+
+  const handleClearAll = React.useCallback(() => {
+    const dayBlocks = dayTimeBlocks.filter((b) =>
+      isSameDay(new Date(b.startTime), selectedDate)
+    );
+    if (dayBlocks.length === 0) {
+      toast({ title: "No blocks to clear" });
+      return;
+    }
+    if (!window.confirm(`Delete all ${dayBlocks.length} time blocks for ${format(selectedDate, "MMM d")}?`)) return;
+    dayBlocks.forEach((b) => deleteTimeBlock.mutate(b.id));
+  }, [dayTimeBlocks, selectedDate, deleteTimeBlock]);
   
   // Filter tasks that don't have a time block on this day
   const unscheduledTasks = React.useMemo(() => {
@@ -1049,23 +1061,26 @@ export function CalendarView({
         onDownloadTemplate={handleDownloadTemplate}
         onDeleteTemplate={handleDeleteTemplate}
         onOverwriteTemplate={handleOverwriteTemplate}
+        onClearAll={handleClearAll}
         onPrintSchedule={() => {
           const dayBlocks = dayTimeBlocks.slice().sort(
             (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
           );
-          const lines: string[] = [];
-          lines.push(format(selectedDate, "EEEE, MMMM d, yyyy"));
-          lines.push("");
-          if (dayBlocks.length === 0) {
-            lines.push("No scheduled blocks.");
-          } else {
-            for (const block of dayBlocks) {
-              const start = format(new Date(block.startTime), "h:mm a");
-              const end = format(new Date(block.endTime), "h:mm a");
-              lines.push(`${start} – ${end}  ${block.title}`);
-            }
-          }
-          const text = lines.join("\n");
+          const blocksHtml = dayBlocks.map((block) => {
+            const start = format(new Date(block.startTime), "h:mm a");
+            const end = format(new Date(block.endTime), "h:mm a");
+            const color = block.color || "#9CA3AF";
+            return `
+              <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;margin-bottom:6px;page-break-inside:avoid;">
+                <div style="width:4px;height:36px;border-radius:2px;background:${color};flex-shrink:0;"></div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:14px;font-weight:500;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${block.title.replace(/</g, "&lt;")}</div>
+                  <div style="font-size:11px;color:#6b7280;margin-top:2px;">${start} – ${end}</div>
+                </div>
+                <div style="font-size:11px;color:#6b7280;white-space:nowrap;font-variant-numeric:tabular-nums;">${start} – ${end}</div>
+              </div>
+            `;
+          }).join("");
           const printWindow = window.open("", "_blank");
           if (!printWindow) return;
           printWindow.document.write(`
@@ -1074,13 +1089,26 @@ export function CalendarView({
               <head>
                 <title>Daily Schedule</title>
                 <style>
-                  body { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; padding: 2rem; color: #111; }
-                  pre { white-space: pre-wrap; font-size: 14px; line-height: 1.6; }
-                  @media print { body { padding: 0; } }
+                  * { margin: 0; padding: 0; box-sizing: border-box; }
+                  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 2rem; color: #111; background: #f9fafb; }
+                  .header { margin-bottom: 1.5rem; }
+                  .header h1 { font-size: 22px; font-weight: 600; color: #111; }
+                  .header .date { font-size: 13px; color: #6b7280; margin-top: 2px; }
+                  .blocks { max-width: 600px; }
+                  @media print {
+                    body { padding: 0.75in; background: #fff; }
+                    .blocks { max-width: none; }
+                  }
                 </style>
               </head>
               <body>
-                <pre>${text.replace(/</g, "&lt;")}</pre>
+                <div class="header">
+                  <h1>Daily Schedule</h1>
+                  <div class="date">${format(selectedDate, "EEEE, MMMM d, yyyy")}</div>
+                </div>
+                <div class="blocks">
+                  ${dayBlocks.length === 0 ? '<p style="color:#9ca3af;font-size:14px;">No scheduled blocks.</p>' : blocksHtml}
+                </div>
               </body>
             </html>
           `);

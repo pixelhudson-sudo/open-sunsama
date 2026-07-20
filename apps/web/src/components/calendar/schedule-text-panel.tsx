@@ -378,11 +378,11 @@ export function ScheduleTextPanel({
       />
 
       {/* Title — click to edit */}
-      <div className="border-b px-3 py-2">
+      <div className="border-b px-3 py-2.5">
         {editingTitle ? (
           <input
             autoFocus
-            className="w-full text-xs font-medium bg-transparent border-b border-primary/50 outline-none"
+            className="w-full text-sm font-medium bg-transparent border-b border-primary/50 outline-none"
             value={customTitle}
             onChange={(e) => setCustomTitle(e.target.value)}
             onBlur={() => setEditingTitle(false)}
@@ -392,7 +392,7 @@ export function ScheduleTextPanel({
           />
         ) : (
           <h3
-            className="text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+            className="text-sm font-semibold text-foreground cursor-pointer hover:text-primary"
             onClick={() => setEditingTitle(true)}
             title="Click to edit title"
           >

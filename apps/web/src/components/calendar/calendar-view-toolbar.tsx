@@ -1,6 +1,6 @@
 import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Printer, ZoomIn, ZoomOut, PanelRightClose, PanelRightOpen, FileDown } from "lucide-react";
-import { Button, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Printer, ZoomIn, ZoomOut, PanelRightClose, PanelRightOpen, FileDown, Trash2 } from "lucide-react";
+import { Button, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel, Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui";
 import type { TimeBlock, CalendarViewMode } from "@open-sunsama/types";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +26,7 @@ interface CalendarViewToolbarProps {
   onPreviousDay: () => void;
   onNextDay: () => void;
   onToday: () => void;
+  onClearAll?: () => void;
   onPrintSchedule?: () => void;
   /** Template management */
   templates?: TemplateItem[];
@@ -102,6 +103,7 @@ export function CalendarViewToolbar({
   onPreviousDay,
   onNextDay,
   onToday,
+  onClearAll,
   onPrintSchedule,
   templates = [],
   onSaveAsTemplate,
@@ -244,12 +246,12 @@ export function CalendarViewToolbar({
           </span>
         )}
 
-        {/* Templates dropdown + Break + Print */}
+        {/* Templates + Clear all + Print */}
         <div className="flex items-center gap-1">
-          {/* Templates — shown in hours/day views */}
+          {/* Templates dialog — shown in hours/day views */}
           {(viewMode === "hours" || viewMode === "day") && onSaveAsTemplate && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+            <Dialog>
+              <DialogTrigger asChild>
                 <Button
                   variant="outline"
                   size="sm"
@@ -258,58 +260,94 @@ export function CalendarViewToolbar({
                   <FileDown className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Templates</span>
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-[200px]">
-                <DropdownMenuItem onClick={onSaveAsTemplate}>
-                  Save as template…
-                </DropdownMenuItem>
-
-                {templates.length > 0 && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      {templates.length} template{templates.length !== 1 ? "s" : ""}
-                    </DropdownMenuLabel>
-                    {[...templates]
-                      .sort((a, b) => a.name.localeCompare(b.name))
-                      .map((t) => (
-                        <DropdownMenuSub key={t.id}>
-                          <DropdownMenuSubTrigger
-                            className="text-xs"
-                            onClick={() => onLoadTemplate?.(t.id)}
-                          >
-                            {t.name}
-                          </DropdownMenuSubTrigger>
-                          <DropdownMenuSubContent className="min-w-[130px]">
-                            <DropdownMenuItem
-                              onClick={(e) => { e.stopPropagation(); onLoadTemplate?.(t.id); }}
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[420px]">
+                <DialogHeader>
+                  <DialogTitle>Templates</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-2 py-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start text-xs h-8"
+                    onClick={onSaveAsTemplate}
+                  >
+                    Save current schedule as template…
+                  </Button>
+                  {templates.length > 0 && (
+                    <>
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground pt-2 pb-1">
+                        {templates.length} template{templates.length !== 1 ? "s" : ""}
+                      </div>
+                      <div className="max-h-[300px] overflow-y-auto space-y-1">
+                        {[...templates]
+                          .sort((a, b) => a.name.localeCompare(b.name))
+                          .map((t) => (
+                            <div
+                              key={t.id}
+                              className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-xs hover:bg-muted/50"
                             >
-                              Load
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={(e) => { e.stopPropagation(); onRenameTemplate?.(t.id); }}
-                            >
-                              Rename
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={(e) => { e.stopPropagation(); onOverwriteTemplate?.(t.id); }}
-                            >
-                              Overwrite
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={(e) => { e.stopPropagation(); onDeleteTemplate?.(t.id); }}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuSubContent>
-                        </DropdownMenuSub>
-                      ))}
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                              <span
+                                className="flex-1 cursor-pointer font-medium truncate"
+                                onClick={(e) => { e.stopPropagation(); onLoadTemplate?.(t.id); }}
+                                title="Click to load"
+                              >
+                                {t.name}
+                              </span>
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                <button
+                                  className="px-1.5 py-0.5 rounded text-[10px] hover:bg-muted text-muted-foreground"
+                                  onClick={() => onLoadTemplate?.(t.id)}
+                                  title="Load"
+                                >
+                                  Load
+                                </button>
+                                <button
+                                  className="px-1.5 py-0.5 rounded text-[10px] hover:bg-muted text-muted-foreground"
+                                  onClick={() => onRenameTemplate?.(t.id)}
+                                  title="Rename"
+                                >
+                                  Rename
+                                </button>
+                                <button
+                                  className="px-1.5 py-0.5 rounded text-[10px] hover:bg-muted text-muted-foreground"
+                                  onClick={() => onOverwriteTemplate?.(t.id)}
+                                  title="Overwrite"
+                                >
+                                  Overwrite
+                                </button>
+                                <button
+                                  className="px-1.5 py-0.5 rounded text-[10px] hover:bg-destructive/10 text-destructive"
+                                  onClick={() => onDeleteTemplate?.(t.id)}
+                                  title="Delete"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
           )}
+
+          {/* Clear all blocks */}
+          {onClearAll && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onClearAll}
+              aria-label="Clear all blocks"
+              className="h-9 px-2.5 text-xs gap-1.5 text-destructive hover:text-destructive"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Clear all</span>
+            </Button>
+          )}
+
           <Button
             variant="outline"
             size="sm"
