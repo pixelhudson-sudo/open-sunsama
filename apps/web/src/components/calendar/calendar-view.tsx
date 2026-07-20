@@ -716,6 +716,7 @@ export function CalendarView({
             startTime: start,
             endTime: end,
             color: "#9CA3AF",
+            isBreak: true,
           });
         }}
         onPrintSchedule={() => {

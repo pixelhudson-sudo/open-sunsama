@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, timestamp, integer, date, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, timestamp, integer, date, boolean, index } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
@@ -20,6 +20,14 @@ export const timeBlocks = pgTable(
     endTime: varchar('end_time', { length: 5 }).notNull(), // HH:MM format
     durationMins: integer('duration_mins').notNull(),
     color: varchar('color', { length: 7 }).default('#3B82F6'), // Hex color
+    // When locked, the block's duration is immutable: resize handles are
+    // hidden and the sidebar end time is derived from start + duration.
+    // Moves still work (they preserve duration by definition).
+    isDurationLocked: boolean('is_duration_locked').notNull().default(false),
+    // Breaks are schedule scaffolding: they render on the timeline and
+    // take part in cascade chains, but don't count as work blocks
+    // (excluded from the day block-count badge).
+    isBreak: boolean('is_break').notNull().default(false),
     position: integer('position').notNull().default(0),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),

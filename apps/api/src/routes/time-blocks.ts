@@ -6,7 +6,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { getDb, eq, and, asc, timeBlocks, tasks, users, sql } from '@open-sunsama/database';
-import { NotFoundError, uuidSchema } from '@open-sunsama/utils';
+import { NotFoundError, ValidationError, uuidSchema } from '@open-sunsama/utils';
 import { auth, requireScopes, type AuthVariables } from '../middleware/auth.js';
 import {
   createTimeBlockSchema, updateTimeBlockSchema, timeBlockFilterSchema, calculateDuration,
@@ -168,7 +168,8 @@ timeBlocksRouter.post('/', requireScopes('time-blocks:write'), zValidator('json'
 
   const [newTimeBlock] = await db.insert(timeBlocks).values({
     userId, taskId: data.taskId ?? null, title: data.title, description: data.description ?? null,
-    date: data.date, startTime: data.startTime, endTime: data.endTime, durationMins, color: data.color, position,
+    date: data.date, startTime: data.startTime, endTime: data.endTime, durationMins, color: data.color,
+    isDurationLocked: data.isDurationLocked ?? false, isBreak: data.isBreak ?? false, position,
   }).returning();
 
   let task = null;
@@ -339,6 +340,8 @@ timeBlocksRouter.patch('/:id', requireScopes('time-blocks:write'), zValidator('p
   if (updates.startTime !== undefined) updateData.startTime = updates.startTime;
   if (updates.endTime !== undefined) updateData.endTime = updates.endTime;
   if (updates.color !== undefined) updateData.color = updates.color;
+  if (updates.isDurationLocked !== undefined) updateData.isDurationLocked = updates.isDurationLocked;
+  if (updates.isBreak !== undefined) updateData.isBreak = updates.isBreak;
   if (updates.position !== undefined) updateData.position = updates.position;
 
   if (updates.startTime !== undefined || updates.endTime !== undefined) {
@@ -379,6 +382,20 @@ timeBlocksRouter.patch('/:id/cascade-resize', requireScopes('time-blocks:write')
   // Fetch the target block
   const [targetBlock] = await db.select().from(timeBlocks).where(and(eq(timeBlocks.id, id), eq(timeBlocks.userId, userId))).limit(1);
   if (!targetBlock) throw new NotFoundError('Time block', id);
+
+  // Duration lock: the target's duration is immutable. Moves (which
+  // preserve duration) are fine; any change to the start/end span is
+  // rejected. The client hides resize affordances for locked blocks —
+  // this is the server-side backstop.
+  const lockedDuration = timeToMinutes(targetBlock.endTime) - timeToMinutes(targetBlock.startTime);
+  if (
+    targetBlock.isDurationLocked &&
+    timeToMinutes(newEndTime) - timeToMinutes(newStartTime) !== lockedDuration
+  ) {
+    throw new ValidationError('Duration is locked for this time block', {
+      endTime: ['Duration is locked — unlock it in the block details to resize'],
+    });
+  }
 
   const originalStartTime = targetBlock.startTime;
   const targetDate = targetBlock.date;

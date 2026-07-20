@@ -94,6 +94,10 @@ export function TimeBlock({
   // Determine if block is too short to show full content
   const isCompact = height < 48;
 
+  // Duration lock: resize handles are hidden (moves still preserve
+  // duration, so dragging stays enabled).
+  const canResize = !block.isDurationLocked;
+
   const handleMouseDown = (e: React.MouseEvent) => {
     // Don't start drag if clicking on resize handles
     if ((e.target as HTMLElement).dataset.resize) {
@@ -127,6 +131,9 @@ export function TimeBlock({
           isSelected && "ring-2 ring-primary ring-offset-1",
           isDragging && "opacity-50 cursor-grabbing",
           !isDragging && "cursor-grab",
+          // Breaks read as schedule scaffolding, not work blocks:
+          // dashed edge + muted fill.
+          block.isBreak && "border-dashed opacity-70",
           className
         )}
         style={{
@@ -147,16 +154,18 @@ export function TimeBlock({
         tabIndex={0}
         aria-label={`Time block: ${block.title} from ${format(startTime, "h:mm a")} to ${format(endTime, "h:mm a")}`}
       >
-        {/* Top resize handle - Larger touch target on mobile */}
-        <div
-          data-resize="top"
-          className={cn(
-            "absolute top-0 left-0 right-0 cursor-ns-resize hover:bg-black/10 rounded-t-sm",
-            "h-3 sm:h-2", // Larger on mobile for touch
-            "-mt-1 sm:mt-0" // Extend beyond block for easier touch
-          )}
-          onMouseDown={handleTopResize}
-        />
+        {/* Top resize handle - Larger touch target on mobile (hidden when duration-locked) */}
+        {canResize && (
+          <div
+            data-resize="top"
+            className={cn(
+              "absolute top-0 left-0 right-0 cursor-ns-resize hover:bg-black/10 rounded-t-sm",
+              "h-3 sm:h-2", // Larger on mobile for touch
+              "-mt-1 sm:mt-0" // Extend beyond block for easier touch
+            )}
+            onMouseDown={handleTopResize}
+          />
+        )}
 
         {/* Content */}
         <div
@@ -181,16 +190,18 @@ export function TimeBlock({
           )}
         </div>
 
-        {/* Bottom resize handle - Larger touch target on mobile */}
-        <div
-          data-resize="bottom"
-          className={cn(
-            "absolute bottom-0 left-0 right-0 cursor-ns-resize hover:bg-black/10 rounded-b-sm",
-            "h-3 sm:h-2", // Larger on mobile for touch
-            "-mb-1 sm:mb-0" // Extend beyond block for easier touch
-          )}
-          onMouseDown={handleBottomResize}
-        />
+        {/* Bottom resize handle - Larger touch target on mobile (hidden when duration-locked) */}
+        {canResize && (
+          <div
+            data-resize="bottom"
+            className={cn(
+              "absolute bottom-0 left-0 right-0 cursor-ns-resize hover:bg-black/10 rounded-b-sm",
+              "h-3 sm:h-2", // Larger on mobile for touch
+              "-mb-1 sm:mb-0" // Extend beyond block for easier touch
+            )}
+            onMouseDown={handleBottomResize}
+          />
+        )}
       </div>
     </TimeBlockContextMenu>
   );

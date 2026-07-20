@@ -29,6 +29,8 @@ interface TimeRangeSectionProps {
   startTime: string;
   endTime: string;
   durationMins: number;
+  /** Duration lock: end time is derived (start + duration), not editable */
+  endDisabled?: boolean;
   onStartTimeChange: (value: string) => void;
   onEndTimeChange: (value: string) => void;
   onBlur: () => void;
@@ -38,6 +40,7 @@ export function TimeRangeSection({
   startTime,
   endTime,
   durationMins,
+  endDisabled = false,
   onStartTimeChange,
   onEndTimeChange,
   onBlur,
@@ -65,7 +68,9 @@ export function TimeRangeSection({
         value={endTime}
         onChange={(e) => onEndTimeChange(e.target.value)}
         onBlur={onBlur}
-        className="h-8 w-24 text-sm"
+        disabled={endDisabled}
+        className={cn("h-8 w-24 text-sm", endDisabled && "opacity-50")}
+        title={endDisabled ? "Duration is locked — end time follows the start" : undefined}
       />
       <span className="text-xs text-muted-foreground ml-1">
         {formatDuration()}

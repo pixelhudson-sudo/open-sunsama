@@ -71,6 +71,7 @@ export { Tabs, TabsList, TabsTrigger, TabsContent } from "./tabs";
 export { Label } from "./label";
 export { Badge, badgeVariants } from "./badge";
 export { Switch } from "./switch";
+export { Checkbox } from "./checkbox";
 export {
   Select,
   SelectGroup,

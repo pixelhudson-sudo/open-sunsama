@@ -173,10 +173,13 @@ export function CalendarViewToolbar({
           ))}
         </div>
 
-        {/* Block count badge — only on single-day views (per-day signal) */}
-        {(viewMode === "day" || viewMode === "hours") && timeBlocks.length > 0 && (
+        {/* Block count badge — only on single-day views (per-day signal).
+            Breaks are schedule scaffolding, not work — excluded. */}
+        {(viewMode === "day" || viewMode === "hours") &&
+          timeBlocks.filter((b) => !b.isBreak).length > 0 && (
           <span className="hidden sm:inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-            {timeBlocks.length} block{timeBlocks.length !== 1 ? "s" : ""}
+            {timeBlocks.filter((b) => !b.isBreak).length} block
+            {timeBlocks.filter((b) => !b.isBreak).length !== 1 ? "s" : ""}
           </span>
         )}
 

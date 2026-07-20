@@ -43,6 +43,19 @@ export interface TimeBlock {
   /** Additional notes or details about the time block */
   notes: string | null;
 
+  /**
+   * When true, the block's duration is locked: resize affordances are
+   * disabled and editing times preserves the current duration.
+   */
+  isDurationLocked: boolean;
+
+  /**
+   * When true, the block is a break: schedule scaffolding that doesn't
+   * count as a work block (excluded from the day block-count badge)
+   * but still takes part in cascade chains.
+   */
+  isBreak: boolean;
+
   /** Timestamp when the time block was created */
   createdAt: Date;
 
@@ -77,6 +90,12 @@ export interface CreateTimeBlockInput {
 
   /** Additional notes or details */
   notes?: string;
+
+  /** Lock the block's duration (disables resizing) */
+  isDurationLocked?: boolean;
+
+  /** Mark the block as a break (schedule scaffolding, not a work block) */
+  isBreak?: boolean;
 }
 
 /**
@@ -101,6 +120,12 @@ export interface UpdateTimeBlockInput {
 
   /** Updated notes (use null to clear) */
   notes?: string | null;
+
+  /** Lock or unlock the block's duration */
+  isDurationLocked?: boolean;
+
+  /** Mark or unmark the block as a break */
+  isBreak?: boolean;
 }
 
 /**

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { format } from "date-fns";
-import { Trash2 } from "lucide-react";
+import { Trash2, Lock, Coffee } from "lucide-react";
 import type { TimeBlock } from "@open-sunsama/types";
 import {
   useUpdateTimeBlock,
@@ -12,6 +12,7 @@ import {
 } from "@/hooks";
 import {
   Button,
+  Checkbox,
   Sheet,
   SheetContent,
   SheetHeader,
@@ -46,6 +47,8 @@ export function TimeBlockDetailSheet({
   const [color, setColor] = React.useState<string | null>(null);
   const [startTime, setStartTime] = React.useState("");
   const [endTime, setEndTime] = React.useState("");
+  const [isDurationLocked, setIsDurationLocked] = React.useState(false);
+  const [isBreak, setIsBreak] = React.useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
 
   const updateTimeBlock = useUpdateTimeBlock();
@@ -69,6 +72,8 @@ export function TimeBlockDetailSheet({
       const end = new Date(timeBlock.endTime);
       setStartTime(format(start, "HH:mm"));
       setEndTime(format(end, "HH:mm"));
+      setIsDurationLocked(timeBlock.isDurationLocked);
+      setIsBreak(timeBlock.isBreak);
       setShowDeleteConfirm(false);
     }
   }, [timeBlock]);
@@ -98,7 +103,19 @@ export function TimeBlockDetailSheet({
     newStartTime.setHours(startHour ?? 0, startMin ?? 0, 0, 0);
 
     const newEndTime = new Date(blockDate);
-    newEndTime.setHours(endHour ?? 0, endMin ?? 0, 0, 0);
+    if (isDurationLocked) {
+      // Duration lock: the end follows the start, preserving the
+      // current duration — editing the start effectively moves the block.
+      const currentStart = new Date(timeBlock.startTime);
+      const currentEnd = new Date(timeBlock.endTime);
+      const lockedMins = Math.round(
+        (currentEnd.getTime() - currentStart.getTime()) / 60000
+      );
+      newEndTime.setTime(newStartTime.getTime() + lockedMins * 60000);
+      setEndTime(format(newEndTime, "HH:mm"));
+    } else {
+      newEndTime.setHours(endHour ?? 0, endMin ?? 0, 0, 0);
+    }
 
     // Only cascade if the times actually changed
     const currentStart = new Date(timeBlock.startTime);
@@ -167,6 +184,26 @@ export function TimeBlockDetailSheet({
     }
   };
 
+  const handleDurationLockedChange = async (locked: boolean) => {
+    setIsDurationLocked(locked);
+    if (timeBlock) {
+      await updateTimeBlock.mutateAsync({
+        id: timeBlock.id,
+        data: { isDurationLocked: locked },
+      });
+    }
+  };
+
+  const handleBreakChange = async (nextIsBreak: boolean) => {
+    setIsBreak(nextIsBreak);
+    if (timeBlock) {
+      await updateTimeBlock.mutateAsync({
+        id: timeBlock.id,
+        data: { isBreak: nextIsBreak },
+      });
+    }
+  };
+
   const handleDelete = async () => {
     if (!timeBlock) return;
     await deleteTimeBlock.mutateAsync(timeBlock.id);
@@ -218,10 +255,51 @@ export function TimeBlockDetailSheet({
             startTime={startTime}
             endTime={endTime}
             durationMins={durationMins}
+            endDisabled={isDurationLocked}
             onStartTimeChange={setStartTime}
             onEndTimeChange={setEndTime}
             onBlur={handleTimeBlur}
           />
+
+          {/* Flags */}
+          <div className="space-y-2">
+            <label className="flex items-start gap-2.5 cursor-pointer select-none">
+              <Checkbox
+                checked={isDurationLocked}
+                onCheckedChange={(checked) =>
+                  handleDurationLockedChange(checked === true)
+                }
+                className="mt-0.5"
+              />
+              <span className="flex flex-col">
+                <span className="flex items-center gap-1.5 text-sm">
+                  <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                  Lock duration
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  Resizing is disabled; moving keeps the duration.
+                </span>
+              </span>
+            </label>
+            <label className="flex items-start gap-2.5 cursor-pointer select-none">
+              <Checkbox
+                checked={isBreak}
+                onCheckedChange={(checked) =>
+                  handleBreakChange(checked === true)
+                }
+                className="mt-0.5"
+              />
+              <span className="flex flex-col">
+                <span className="flex items-center gap-1.5 text-sm">
+                  <Coffee className="h-3.5 w-3.5 text-muted-foreground" />
+                  Break
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  Schedule padding — doesn't count as a work block.
+                </span>
+              </span>
+            </label>
+          </div>
 
           {/* Color */}
           <ColorSection color={color} onChange={handleColorChange} />

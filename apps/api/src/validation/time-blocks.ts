@@ -24,6 +24,8 @@ export const createTimeBlockSchema = z.object({
   startTime: timeSchema,
   endTime: timeSchema,
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Invalid hex color').optional().default('#3B82F6'),
+  isDurationLocked: z.boolean().optional(),
+  isBreak: z.boolean().optional(),
   position: z.number().int().nonnegative().optional(),
 }).refine(
   (data) => {
@@ -45,6 +47,8 @@ export const updateTimeBlockSchema = z.object({
   startTime: timeSchema.optional(),
   endTime: timeSchema.optional(),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Invalid hex color').optional().nullable(),
+  isDurationLocked: z.boolean().optional(),
+  isBreak: z.boolean().optional(),
   position: z.number().int().nonnegative().optional(),
 }).refine(
   (data) => {

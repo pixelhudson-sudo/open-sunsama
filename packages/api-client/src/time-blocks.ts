@@ -51,6 +51,8 @@ interface RawTimeBlock {
   endTime: string; // HH:mm
   durationMins: number;
   color: string | null;
+  isDurationLocked?: boolean;
+  isBreak?: boolean;
   position: number;
   createdAt: string;
   updatedAt: string;
@@ -76,6 +78,8 @@ function transformTimeBlock(raw: RawTimeBlock): TimeBlock {
     endTime: new Date(endDateTime),
     color: raw.color,
     notes: raw.description ?? null,
+    isDurationLocked: raw.isDurationLocked ?? false,
+    isBreak: raw.isBreak ?? false,
     createdAt: new Date(raw.createdAt),
     updatedAt: new Date(raw.updatedAt),
   };
