@@ -10,6 +10,7 @@ import {
   Label,
   Checkbox,
 } from "@/components/ui";
+import { ColorSection } from "./time-block-form-sections";
 import { useCreateTimeBlock } from "@/hooks";
 
 interface QuickCreatePopupProps {
@@ -31,6 +32,7 @@ export function QuickCreatePopup({
 }: QuickCreatePopupProps) {
   const [title, setTitle] = React.useState("");
   const [isBreak, setIsBreak] = React.useState(false);
+  const [color, setColor] = React.useState<string | null>(null);
   const [startTimeInput, setStartTimeInput] = React.useState(
     format(startTime, "HH:mm")
   );
@@ -45,6 +47,7 @@ export function QuickCreatePopup({
     if (!open) return;
     setTitle("");
     setIsBreak(false);
+    setColor(null);
     setStartTimeInput(format(startTime, "HH:mm"));
     if (endTime) {
       setEndTimeInput(format(endTime, "HH:mm"));
@@ -121,14 +124,14 @@ export function QuickCreatePopup({
       startTime: start,
       endTime: end,
       isBreak: isBreak || undefined,
-      color: isBreak ? "#9CA3AF" : undefined,
+      color: isBreak ? "#9CA3AF" : (color || undefined),
     });
     onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[380px] top-[20%]">
+      <DialogContent className="sm:max-w-[380px]">
         <DialogHeader>
           <DialogTitle>New time block</DialogTitle>
         </DialogHeader>
@@ -202,6 +205,9 @@ export function QuickCreatePopup({
               className="h-8 w-28 text-sm"
             />
           </div>
+
+          {/* Color */}
+          <ColorSection color={color} onChange={setColor} />
 
           {/* Actions */}
           <div className="flex items-center justify-end gap-2 pt-2">

@@ -235,11 +235,15 @@ export function ScheduleTextPanel({
     setTranslating(true);
     try {
       const api = getApi();
+      const timeRegex = /^(\d{1,2}:\d{2}\s*(?:am|pm)?)\s*/i;
       const translatedLines = await Promise.all(
         lines.map(async (line) => {
           if (!line.trim()) return line;
-          const translated = await api.translate(line, "zh-TW");
-          return `${translated}\n${line}`;
+          const match = line.match(timeRegex);
+          const timePrefix = match?.[1] ?? "";
+          const titlePart = line.replace(timeRegex, "").trim();
+          const translated = await api.translate(titlePart || line, "zh-TW");
+          return `${timePrefix} ${translated} ${titlePart || ""}`.trim();
         })
       );
       setFinalMessage(translatedLines.join("\n"));
