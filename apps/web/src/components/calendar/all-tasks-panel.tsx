@@ -212,7 +212,6 @@ export function AllTasksPanel({
                       onDrop={(e) => handlePriorityDrop(def.id, e)}
                     >
                       <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span style={{ fontSize: prioritySize + 4 }}>{def.emoji}</span>
                       <span className="font-bold" style={{ color: def.color, fontSize: prioritySize }}>
                         {def.label}
                       </span>
@@ -330,7 +329,6 @@ function CompactTaskCard({
         )}
         onClick={onToggleComplete}
       />
-      <span className="text-[10px] shrink-0 leading-none">{priorityDef.emoji}</span>
       <span
         className={cn(
           "flex-1 min-w-0 truncate leading-tight",

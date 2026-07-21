@@ -99,7 +99,7 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
 }));
 
 // Priority type
-export const TASK_PRIORITIES = ["P0", "P1", "P2", "P3"] as const;
+export const TASK_PRIORITIES = ["P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8"] as const;
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];
 
 // Zod schemas for validation

@@ -17,8 +17,13 @@ import {
 const PRIORITY_DOT: Record<TaskPriority, string> = {
   P0: "bg-red-500",
   P1: "bg-orange-500",
-  P2: "bg-blue-400",
-  P3: "bg-slate-300 dark:bg-slate-600",
+  P2: "bg-amber-500",
+  P3: "bg-blue-500",
+  P4: "bg-green-500",
+  P5: "bg-teal-500",
+  P6: "bg-purple-500",
+  P7: "bg-pink-500",
+  P8: "bg-slate-300 dark:bg-slate-600",
 };
 
 /** Age buckets, ordered oldest-first so the stalest pile surfaces at the top. */

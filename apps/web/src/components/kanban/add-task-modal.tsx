@@ -23,10 +23,8 @@ import {
   TooltipProvider,
 } from "@/components/ui";
 import { RichTextEditor } from "@/components/ui/rich-text-editor.lazy";
-import { PriorityIcon, PRIORITY_LABELS } from "@/components/ui/priority-badge";
 import { SubtaskList, type Subtask } from "./subtask-list";
-
-const PRIORITIES: TaskPriority[] = ["P0", "P1", "P2", "P3"];
+import { getPriorityDefs } from "@/components/calendar/priority-manager";
 
 export type AddPosition = "top" | "bottom";
 
@@ -77,6 +75,8 @@ export function AddTaskModal({
   const reorderTasks = useReorderTasks();
   const titleInputRef = React.useRef<HTMLInputElement>(null);
   const formRef = React.useRef<HTMLFormElement>(null);
+  const priorityDefs = React.useMemo(() => getPriorityDefs(), []);
+  const [reopenAfterCreate, setReopenAfterCreate] = React.useState(false);
 
   // Fetch existing tasks for the date so we can reorder after adding to top
   const { data: existingTasks } = useTasks(
@@ -98,6 +98,7 @@ export function AddTaskModal({
       setEstimatedMins("");
       setPriority("P2");
       setSubtasks([]);
+      setReopenAfterCreate(false);
     }
   }, [open]);
 
@@ -105,8 +106,15 @@ export function AddTaskModal({
   React.useEffect(() => {
     if (!open) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd+Enter / Ctrl+Enter to submit
-      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      // Shift+Enter → create and reopen
+      if (e.key === "Enter" && e.shiftKey) {
+        e.preventDefault();
+        setReopenAfterCreate(true);
+        formRef.current?.requestSubmit();
+        return;
+      }
+      // Enter → create and close
+      if (e.key === "Enter") {
         e.preventDefault();
         formRef.current?.requestSubmit();
         return;
@@ -165,7 +173,17 @@ export function AddTaskModal({
       });
     }
 
-    onOpenChange(false);
+    if (reopenAfterCreate) {
+      setTitle("");
+      setDescription("");
+      setEstimatedMins("");
+      setPriority("P2");
+      setSubtasks([]);
+      setReopenAfterCreate(false);
+      setTimeout(() => titleInputRef.current?.focus(), 100);
+    } else {
+      onOpenChange(false);
+    }
   };
 
   const handleTimeSelect = (value: string) => {
@@ -203,20 +221,26 @@ export function AddTaskModal({
                     size="sm"
                     className="h-8 px-2.5 gap-1.5 text-sm font-normal"
                   >
-                    <PriorityIcon priority={priority} />
-                    <span>{PRIORITY_LABELS[priority]}</span>
+                    <div
+                      className="w-3 h-3 rounded-full shrink-0"
+                      style={{ backgroundColor: priorityDefs.find((d) => d.id === priority)?.color ?? "#6b7280" }}
+                    />
+                    <span>{priorityDefs.find((d) => d.id === priority)?.label ?? priority}</span>
                     <ChevronDown className="h-3 w-3 opacity-50" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-32">
-                  {PRIORITIES.map((p) => (
+                <DropdownMenuContent align="end" className="w-36">
+                  {priorityDefs.map((p) => (
                     <DropdownMenuItem
-                      key={p}
-                      onClick={() => setPriority(p)}
-                      className={cn("gap-2 text-sm", priority === p && "bg-accent")}
+                      key={p.id}
+                      onClick={() => setPriority(p.id as TaskPriority)}
+                      className={cn("gap-2 text-sm", priority === p.id && "bg-accent")}
                     >
-                      <PriorityIcon priority={p} />
-                      <span>{PRIORITY_LABELS[p]}</span>
+                      <div
+                        className="w-3 h-3 rounded-full shrink-0"
+                        style={{ backgroundColor: p.color }}
+                      />
+                      <span>{p.label}</span>
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>

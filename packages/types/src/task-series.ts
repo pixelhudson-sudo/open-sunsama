@@ -53,7 +53,7 @@ export interface TaskSeries {
   estimatedMins: number | null;
 
   /** Priority level (inherited by generated instances) */
-  priority: "P0" | "P1" | "P2" | "P3";
+  priority: "P0" | "P1" | "P2" | "P3" | "P4" | "P5" | "P6" | "P7" | "P8";
 
   /** Type of recurrence pattern */
   recurrenceType: RecurrenceType;
@@ -141,7 +141,7 @@ export interface CreateTaskSeriesInput {
   estimatedMins?: number;
 
   /** Priority level (P0=Critical, P1=High, P2=Medium, P3=Low) */
-  priority?: "P0" | "P1" | "P2" | "P3";
+  priority?: "P0" | "P1" | "P2" | "P3" | "P4" | "P5" | "P6" | "P7" | "P8";
 
   /** Type of recurrence pattern */
   recurrenceType: RecurrenceType;
@@ -209,7 +209,7 @@ export interface UpdateTaskSeriesInput {
   estimatedMins?: number | null;
 
   /** Updated priority level */
-  priority?: "P0" | "P1" | "P2" | "P3";
+  priority?: "P0" | "P1" | "P2" | "P3" | "P4" | "P5" | "P6" | "P7" | "P8";
 
   /** Updated recurrence type */
   recurrenceType?: RecurrenceType;

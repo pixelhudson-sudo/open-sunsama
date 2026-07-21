@@ -10,7 +10,7 @@ import {
 } from "@/components/ui";
 import { PriorityIcon, PRIORITY_LABELS } from "@/components/ui/priority-badge";
 
-const PRIORITIES: TaskPriority[] = ["P0", "P1", "P2", "P3"];
+const PRIORITIES: TaskPriority[] = ["P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8"];
 
 interface PrioritySelectorProps {
   priority: TaskPriority;

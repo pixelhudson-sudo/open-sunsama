@@ -7,7 +7,7 @@
  * Task priority levels.
  * P0 = Critical/Urgent, P1 = High, P2 = Medium (default), P3 = Low
  */
-export type TaskPriority = "P0" | "P1" | "P2" | "P3";
+export type TaskPriority = "P0" | "P1" | "P2" | "P3" | "P4" | "P5" | "P6" | "P7" | "P8";
 
 /**
  * Represents a task in the Open Sunsama system.

@@ -7,14 +7,11 @@ export interface PriorityDef {
   id: string;
   label: string;
   color: string;
-  emoji: string;
   order: number;
   size: number;
 }
 
 const STORAGE_KEY = "open_sunsama_priority_defs";
-
-const EMOJI_LIST = ["🔥","⭐","🔵","🟢","🟡","🟠","🔴","🟣","⚪","💎","📌","🎯","⚡","💡","📊","✅","🔄","🚀","💪","🎯","🏆","💀","👑","🌈","🍀","🎨","🛠️","💻","📱","🎮","📚","💰","❤️","💙","💚","💛","🧡","🤍","🖤","💜"];
 
 const COLOR_PRESETS = [
   "#ef4444","#dc2626","#b91c1c","#f97316","#ea580c","#f59e0b","#d97706","#eab308",
@@ -24,10 +21,15 @@ const COLOR_PRESETS = [
 ];
 
 const defaultPriorities: PriorityDef[] = [
-  { id: "P1", label: "P1", color: "#ef4444", emoji: "🔥", order: 0, size: 14 },
-  { id: "P2", label: "P2", color: "#f59e0b", emoji: "⭐", order: 1, size: 14 },
-  { id: "P3", label: "P3", color: "#3b82f6", emoji: "🔵", order: 2, size: 14 },
-  { id: "P4", label: "P4", color: "#6b7280", emoji: "⚪", order: 3, size: 14 },
+  { id: "P1", label: "P1", color: "#ef4444", order: 0, size: 14 },
+  { id: "P2", label: "P2", color: "#f97316", order: 1, size: 14 },
+  { id: "P3", label: "P3", color: "#f59e0b", order: 2, size: 14 },
+  { id: "P4", label: "P4", color: "#3b82f6", order: 3, size: 14 },
+  { id: "P5", label: "P5", color: "#22c55e", order: 4, size: 14 },
+  { id: "P6", label: "P6", color: "#14b8a6", order: 5, size: 14 },
+  { id: "P7", label: "P7", color: "#8b5cf6", order: 6, size: 14 },
+  { id: "P8", label: "P8", color: "#ec4899", order: 7, size: 14 },
+  { id: "P9", label: "P9", color: "#6b7280", order: 8, size: 14 },
 ];
 
 export function getPriorityDefs(): PriorityDef[] {
@@ -75,7 +77,7 @@ export function PriorityManager({ defs, onChange, children }: PriorityManagerPro
 
   const startCreate = () => {
     const id = `P${nextId}`;
-    setEditing({ id, label: id, color: "#8b5cf6", emoji: "📌", order: defs.length, size: 14 });
+    setEditing({ id, label: id, color: "#8b5cf6", order: defs.length, size: 14 });
     setNextId(nextId + 1);
   };
 
@@ -115,7 +117,6 @@ export function PriorityManager({ defs, onChange, children }: PriorityManagerPro
               ) : (
                 <div className="flex items-center gap-2 rounded-md border px-3 py-2 text-xs group">
                   <GripVertical className="h-3.5 w-3.5 text-muted-foreground cursor-grab shrink-0" />
-                  <span className="text-base">{def.emoji}</span>
                   <div
                     className="w-4 h-4 rounded shrink-0 border"
                     style={{ backgroundColor: def.color }}
@@ -178,21 +179,6 @@ function PriorityEditRow({
         />
         <Button size="sm" className="h-7 text-[10px]" onClick={onSave}>Save</Button>
         <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={onCancel}>Cancel</Button>
-      </div>
-      {/* Emoji picker */}
-      <div className="flex flex-wrap gap-1">
-        {EMOJI_LIST.map((emoji) => (
-          <button
-            key={emoji}
-            className={cn(
-              "w-7 h-7 flex items-center justify-center rounded hover:bg-muted text-sm",
-              def.emoji === emoji && "bg-muted ring-1 ring-primary"
-            )}
-            onClick={() => onChange({ ...def, emoji })}
-          >
-            {emoji}
-          </button>
-        ))}
       </div>
       {/* Color presets */}
       <div className="flex flex-wrap gap-1">

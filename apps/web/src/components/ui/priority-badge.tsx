@@ -19,8 +19,13 @@ const priorityBadgeVariants = cva(
       priority: {
         P0: "bg-red-500/15 text-red-600 dark:text-red-400",
         P1: "bg-orange-500/15 text-orange-600 dark:text-orange-400",
-        P2: "bg-blue-500/10 text-blue-500 dark:text-blue-400",
-        P3: "bg-slate-400/10 text-slate-400 dark:text-slate-500",
+        P2: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+        P3: "bg-blue-500/10 text-blue-500 dark:text-blue-400",
+        P4: "bg-green-500/10 text-green-600 dark:text-green-400",
+        P5: "bg-teal-500/10 text-teal-600 dark:text-teal-400",
+        P6: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+        P7: "bg-pink-500/10 text-pink-600 dark:text-pink-400",
+        P8: "bg-slate-400/10 text-slate-400 dark:text-slate-500",
       },
       size: {
         sm: "h-4 px-1 text-[10px]",
@@ -42,8 +47,13 @@ const priorityDotVariants = cva(
       priority: {
         P0: "bg-red-500",
         P1: "bg-orange-500",
-        P2: "bg-blue-500",
-        P3: "bg-slate-300 dark:bg-slate-600",
+        P2: "bg-amber-500",
+        P3: "bg-blue-500",
+        P4: "bg-green-500",
+        P5: "bg-teal-500",
+        P6: "bg-purple-500",
+        P7: "bg-pink-500",
+        P8: "bg-slate-400 dark:bg-slate-600",
       },
       size: {
         sm: "h-1.5 w-1.5",
@@ -69,8 +79,13 @@ const priorityTagVariants = cva(
       priority: {
         P0: "bg-red-500 text-white",
         P1: "bg-orange-500 text-white",
-        P2: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
-        P3: "bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500",
+        P2: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+        P3: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+        P4: "bg-green-500/15 text-green-600 dark:text-green-400",
+        P5: "bg-teal-500/15 text-teal-600 dark:text-teal-400",
+        P6: "bg-purple-500/15 text-purple-600 dark:text-purple-400",
+        P7: "bg-pink-500/15 text-pink-600 dark:text-pink-400",
+        P8: "bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500",
       },
     },
     defaultVariants: {
@@ -92,6 +107,11 @@ const PRIORITY_LABELS: Record<TaskPriority, string> = {
   P1: "P1",
   P2: "P2",
   P3: "P3",
+  P4: "P4",
+  P5: "P5",
+  P6: "P6",
+  P7: "P7",
+  P8: "P8",
 };
 
 const PRIORITY_SHORT_LABELS: Record<TaskPriority, string> = {
@@ -99,6 +119,11 @@ const PRIORITY_SHORT_LABELS: Record<TaskPriority, string> = {
   P1: "P1",
   P2: "P2",
   P3: "P3",
+  P4: "P4",
+  P5: "P5",
+  P6: "P6",
+  P7: "P7",
+  P8: "P8",
 };
 
 const PRIORITY_TAG_LABELS: Record<TaskPriority, string> = {
@@ -106,6 +131,11 @@ const PRIORITY_TAG_LABELS: Record<TaskPriority, string> = {
   P1: "P1",
   P2: "P2",
   P3: "P3",
+  P4: "P4",
+  P5: "P5",
+  P6: "P6",
+  P7: "P7",
+  P8: "P8",
 };
 
 export function PriorityBadge({
@@ -177,13 +207,23 @@ export function PriorityIcon({
     P1: ["h-1/4", "h-1/2", "h-3/4", "h-full"],
     P2: ["h-1/4", "h-1/2", "h-3/4", "h-0"],
     P3: ["h-1/4", "h-1/2", "h-0", "h-0"],
+    P4: ["h-1/4", "h-0", "h-0", "h-0"],
+    P5: ["h-0", "h-0", "h-0", "h-0"],
+    P6: ["h-0", "h-0", "h-0", "h-0"],
+    P7: ["h-0", "h-0", "h-0", "h-0"],
+    P8: ["h-0", "h-0", "h-0", "h-0"],
   };
 
   const colorClasses: Record<TaskPriority, string> = {
     P0: "bg-red-500",
     P1: "bg-orange-500",
-    P2: "bg-blue-500",
-    P3: "bg-slate-300 dark:bg-slate-500",
+    P2: "bg-amber-500",
+    P3: "bg-blue-500",
+    P4: "bg-green-500",
+    P5: "bg-teal-500",
+    P6: "bg-purple-500",
+    P7: "bg-pink-500",
+    P8: "bg-slate-300 dark:bg-slate-500",
   };
 
   return (
@@ -226,7 +266,7 @@ export function PriorityTag({
 }: PriorityTagProps) {
   // Only show tag for urgent (P0) and high (P1) priorities
   // P2 and P3 are hidden to keep the UI clean
-  if (priority === "P2" || priority === "P3") {
+  if (priority === "P2" || priority === "P3" || priority === "P4" || priority === "P5" || priority === "P6" || priority === "P7" || priority === "P8") {
     return null;
   }
 
@@ -258,8 +298,13 @@ export function PriorityLabel({
   const styleClasses: Record<TaskPriority, string> = {
     P0: "bg-red-500/15 text-red-600 dark:text-red-400",
     P1: "bg-orange-500/15 text-orange-600 dark:text-orange-400",
-    P2: "bg-blue-500/10 text-blue-500 dark:text-blue-400",
-    P3: "bg-slate-400/10 text-slate-400 dark:text-slate-500",
+    P2: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+    P3: "bg-blue-500/10 text-blue-500 dark:text-blue-400",
+    P4: "bg-green-500/10 text-green-600 dark:text-green-400",
+    P5: "bg-teal-500/10 text-teal-600 dark:text-teal-400",
+    P6: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+    P7: "bg-pink-500/10 text-pink-600 dark:text-pink-400",
+    P8: "bg-slate-400/10 text-slate-400 dark:text-slate-500",
   };
 
   return (

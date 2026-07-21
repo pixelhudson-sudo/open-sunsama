@@ -205,7 +205,7 @@ export class ApiClient {
 }
 
 // Types
-export type TaskPriority = "P0" | "P1" | "P2" | "P3";
+export type TaskPriority = "P0" | "P1" | "P2" | "P3" | "P4" | "P5" | "P6" | "P7" | "P8";
 
 export interface Task {
   id: string;

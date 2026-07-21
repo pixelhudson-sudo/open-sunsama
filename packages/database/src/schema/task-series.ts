@@ -164,7 +164,7 @@ const baseInsertSchema = createInsertSchema(taskSeries, {
   title: z.string().min(1, "Title is required").max(500),
   notes: z.string().optional(),
   estimatedMins: z.number().int().positive().optional(),
-  priority: z.enum(["P0", "P1", "P2", "P3"]).optional(),
+  priority: z.enum(["P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8"]).optional(),
   recurrenceType: z.enum(RECURRENCE_TYPES),
   daysOfWeek: z.array(z.number().int().min(0).max(6)).optional(),
   dayOfMonth: z.number().int().min(1).max(31).optional(),

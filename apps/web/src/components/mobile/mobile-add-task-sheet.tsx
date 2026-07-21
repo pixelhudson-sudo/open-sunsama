@@ -8,18 +8,28 @@ import { useCreateTask } from "@/hooks/useTasks";
 const PRIORITY_COLORS: Record<TaskPriority, string> = {
   P0: "bg-red-500 text-white",
   P1: "bg-orange-500 text-white",
-  P2: "bg-blue-500 text-white",
-  P3: "bg-slate-400 text-white",
+  P2: "bg-amber-500 text-white",
+  P3: "bg-blue-500 text-white",
+  P4: "bg-green-500 text-white",
+  P5: "bg-teal-500 text-white",
+  P6: "bg-purple-500 text-white",
+  P7: "bg-pink-500 text-white",
+  P8: "bg-slate-400 text-white",
 };
 
 const PRIORITY_RING: Record<TaskPriority, string> = {
   P0: "ring-red-500",
   P1: "ring-orange-500",
-  P2: "ring-blue-500",
-  P3: "ring-slate-400",
+  P2: "ring-amber-500",
+  P3: "ring-blue-500",
+  P4: "ring-green-500",
+  P5: "ring-teal-500",
+  P6: "ring-purple-500",
+  P7: "ring-pink-500",
+  P8: "ring-slate-400",
 };
 
-const PRIORITIES: TaskPriority[] = ["P0", "P1", "P2", "P3"];
+const PRIORITIES: TaskPriority[] = ["P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8"];
 
 interface MobileAddTaskSheetProps {
   open: boolean;

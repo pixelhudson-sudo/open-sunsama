@@ -8,7 +8,7 @@ import { uuidSchema, dateSchema } from '@open-sunsama/utils';
 /**
  * Priority levels for tasks
  */
-export const prioritySchema = z.enum(['P0', 'P1', 'P2', 'P3']);
+export const prioritySchema = z.enum(['P0', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8']);
 
 /**
  * Sort by options for tasks

@@ -9,8 +9,13 @@ import { useTaskTimerDisplay } from "@/components/kanban/task-time-badge";
 const PRIORITY_CHECKBOX_BORDER: Record<TaskPriority, string> = {
   P0: "border-red-500",
   P1: "border-orange-500",
-  P2: "border-blue-500",
-  P3: "border-muted-foreground/30",
+  P2: "border-amber-500",
+  P3: "border-blue-500",
+  P4: "border-green-500",
+  P5: "border-teal-500",
+  P6: "border-purple-500",
+  P7: "border-pink-500",
+  P8: "border-muted-foreground/30",
 };
 
 const PRIORITY_PILL_STYLE: Record<string, string> = {

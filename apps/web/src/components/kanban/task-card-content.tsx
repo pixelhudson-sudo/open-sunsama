@@ -84,8 +84,13 @@ const DURATION_PRESETS = [
 const PRIORITY_STYLES: Record<TaskPriority, string> = {
   P0: "bg-red-500/15 text-red-600 dark:text-red-400",
   P1: "bg-orange-500/15 text-orange-600 dark:text-orange-400",
-  P2: "bg-blue-500/10 text-blue-500 dark:text-blue-400",
-  P3: "bg-slate-400/10 text-slate-400 dark:text-slate-500",
+  P2: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  P3: "bg-blue-500/10 text-blue-500 dark:text-blue-400",
+  P4: "bg-green-500/10 text-green-600 dark:text-green-400",
+  P5: "bg-teal-500/10 text-teal-600 dark:text-teal-400",
+  P6: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+  P7: "bg-pink-500/10 text-pink-600 dark:text-pink-400",
+  P8: "bg-slate-400/10 text-slate-400 dark:text-slate-500",
 };
 
 /**
